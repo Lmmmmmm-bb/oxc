@@ -2,36 +2,17 @@
 source: crates/oxc_semantic/tests/main.rs
 input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaration/conditional-nested.ts
 ---
+================================================================================
+SCOPES
+================================================================================
+
 [
   {
     "children": [
       {
         "children": [
           {
-            "children": [
-              {
-                "children": [],
-                "flags": "ScopeFlags(StrictMode)",
-                "id": 3,
-                "node": "TSConditionalType",
-                "symbols": [
-                  {
-                    "flags": "SymbolFlags(TypeParameter)",
-                    "id": 3,
-                    "name": "U",
-                    "node": "TSTypeParameter(U)",
-                    "references": [
-                      {
-                        "flags": "ReferenceFlags(Type)",
-                        "id": 5,
-                        "name": "U",
-                        "node_id": 33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
+            "children": [],
             "flags": "ScopeFlags(StrictMode)",
             "id": 2,
             "node": "TSConditionalType",
@@ -47,6 +28,28 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaratio
                     "id": 2,
                     "name": "U",
                     "node_id": 19
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "children": [],
+            "flags": "ScopeFlags(StrictMode)",
+            "id": 3,
+            "node": "TSConditionalType",
+            "symbols": [
+              {
+                "flags": "SymbolFlags(TypeParameter)",
+                "id": 3,
+                "name": "U",
+                "node": "TSTypeParameter(U)",
+                "references": [
+                  {
+                    "flags": "ReferenceFlags(Type)",
+                    "id": 5,
+                    "name": "U",
+                    "node_id": 33
                   }
                 ]
               }
@@ -94,3 +97,9 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaratio
     ]
   }
 ]
+
+================================================================================
+CONFORMANCE
+================================================================================
+
+All tests passed.

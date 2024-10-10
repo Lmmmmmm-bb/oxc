@@ -1,3 +1,4 @@
+use cow_utils::CowUtils;
 use oxc_ast::{
     ast::{Expression, JSXAttributeItem, JSXAttributeName, JSXElement, JSXFragment, Statement},
     AstKind,
@@ -6,18 +7,22 @@ use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
 use oxc_span::{GetSpan, Span};
 
-use crate::{context::LintContext, rule::Rule, AstNode};
+use crate::{
+    context::{ContextHost, LintContext},
+    rule::Rule,
+    AstNode,
+};
 
 fn missing_key_prop_for_element_in_array(span: Span) -> OxcDiagnostic {
     OxcDiagnostic::warn(r#"Missing "key" prop for element in array."#).with_label(span)
 }
 
-fn missing_key_prop_for_element_in_iterator(span0: Span, span1: Span) -> OxcDiagnostic {
+fn missing_key_prop_for_element_in_iterator(iter_span: Span, el_span: Span) -> OxcDiagnostic {
     OxcDiagnostic::warn(r#"Missing "key" prop for element in iterator."#)
         .with_help(r#"Add a "key" prop to the element in the iterator (https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key)."#)
         .with_labels([
-            span0.label("Iterator starts here."),
-            span1.label("Element generated here."),
+            iter_span.label("Iterator starts here."),
+            el_span.label("Element generated here."),
         ])
 }
 
@@ -36,12 +41,15 @@ declare_oxc_lint!(
     /// Enforce `key` prop for elements in array
     ///
     /// ### Example
+    ///
+    /// Examples of **incorrect** code for this rule:
     /// ```jsx
-    /// // Bad
     /// [1, 2, 3].map(x => <App />);
     /// [1, 2, 3]?.map(x => <BabelEslintApp />)
+    /// ```
     ///
-    /// // Good
+    /// Examples of **correct** code for this rule:
+    /// ```jsx
     /// [1, 2, 3].map(x => <App key={x} />);
     /// [1, 2, 3]?.map(x => <BabelEslintApp key={x} />)
     /// ```
@@ -64,7 +72,7 @@ impl Rule for JsxKey {
         }
     }
 
-    fn should_run(&self, ctx: &LintContext) -> bool {
+    fn should_run(&self, ctx: &ContextHost) -> bool {
         ctx.source_type().is_jsx()
     }
 }
@@ -88,8 +96,9 @@ pub fn import_matcher<'a>(
     actual_local_name: &'a str,
     expected_module_name: &'a str,
 ) -> bool {
+    let expected_module_name = expected_module_name.cow_to_lowercase();
     ctx.semantic().module_record().import_entries.iter().any(|import| {
-        import.module_request.name().as_str() == expected_module_name.to_lowercase()
+        import.module_request.name().as_str() == expected_module_name
             && import.local_name.name().as_str() == actual_local_name
     })
 }
@@ -100,10 +109,9 @@ pub fn is_import<'a>(
     expected_local_name: &'a str,
     expected_module_name: &'a str,
 ) -> bool {
-    let total_imports = ctx.semantic().module_record().requested_modules.len();
-    let total_variables = ctx.scopes().get_bindings(ctx.scopes().root_scope_id()).len();
-
-    if total_variables == 0 && total_imports == 0 {
+    if ctx.semantic().module_record().requested_modules.is_empty()
+        && ctx.scopes().get_bindings(ctx.scopes().root_scope_id()).is_empty()
+    {
         return actual_local_name == expected_local_name;
     }
 
@@ -194,7 +202,7 @@ fn is_in_array_or_iter<'a, 'b>(
                 return Some(InsideArrayOrIterator::Array);
             }
             AstKind::CallExpression(v) => {
-                let callee = &v.callee.without_parenthesized();
+                let callee = &v.callee.without_parentheses();
 
                 if let Some(v) = callee.as_member_expression() {
                     if let Some((span, ident)) = v.static_property_info() {
@@ -483,10 +491,10 @@ fn test() {
              </div>
               );}))}
         ",
-        r#"import { Children } from "react";        
+        r#"import { Children } from "react";
         Children.toArray([1, 2 ,3].map(x => <App />));
         "#,
-        r#"import React from "react";        
+        r#"import React from "react";
         React.Children.toArray([1, 2 ,3].map(x => <App />));
         "#,
         r"React.Children.toArray([1, 2 ,3].map(x => <App />));",

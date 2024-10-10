@@ -5,10 +5,10 @@ use oxc_span::Span;
 
 use crate::{context::LintContext, rule::Rule, AstNode};
 
-fn no_empty_diagnostic(x0: &str, span1: Span) -> OxcDiagnostic {
-    OxcDiagnostic::warn("Disallow empty block statements")
-        .with_help(format!("Add comment inside empty {x0} statement"))
-        .with_label(span1.label(format!("Empty {x0} statement")))
+fn no_empty_diagnostic(stmt_kind: &str, span: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn("Unexpected empty block statements")
+        .with_help(format!("Remove this {stmt_kind} or add a comment inside it"))
+        .with_label(span)
 }
 
 #[derive(Debug, Default, Clone)]

@@ -1,3 +1,4 @@
+use cow_utils::CowUtils;
 use lazy_static::lazy_static;
 use oxc_ast::{
     ast::{BigIntLiteral, NumericLiteral},
@@ -177,7 +178,7 @@ impl NumericSeparatorsStyle {
     fn format_binary(&self, raw_number: &str) -> String {
         let prefix = &raw_number[0..2];
 
-        let mut to_format = raw_number[2..].replace('_', "");
+        let mut to_format = raw_number[2..].cow_replace('_', "").into_owned();
 
         add_separators(&mut to_format, &SeparatorDir::Right, &self.binary);
         to_format.insert_str(0, prefix);
@@ -187,7 +188,7 @@ impl NumericSeparatorsStyle {
     fn format_hex(&self, number_raw: &str) -> String {
         let prefix = &number_raw[0..2];
 
-        let mut to_format = number_raw[2..].replace('_', "");
+        let mut to_format = number_raw[2..].cow_replace('_', "").into_owned();
 
         add_separators(&mut to_format, &SeparatorDir::Right, &self.hexadecimal);
         to_format.insert_str(0, prefix);
@@ -204,7 +205,7 @@ impl NumericSeparatorsStyle {
 
         let prefix = &number_raw[0..2];
 
-        let mut to_format = number_raw[2..].replace('_', "");
+        let mut to_format = number_raw[2..].cow_replace('_', "").into_owned();
 
         add_separators(&mut to_format, &SeparatorDir::Right, &self.octal);
         to_format.insert_str(0, prefix);
@@ -222,7 +223,7 @@ impl NumericSeparatorsStyle {
         let mut out = String::new();
 
         {
-            let number = caps.get(1).unwrap().as_str().replace('_', "");
+            let number = caps.get(1).unwrap().as_str().cow_replace('_', "").into_owned();
 
             if let Some((whole, decimal)) = number.split_once('.') {
                 if !whole.is_empty() {
@@ -251,7 +252,7 @@ impl NumericSeparatorsStyle {
             out.push_str(sign.as_str());
         }
         if let Some(power) = caps.get(4) {
-            let mut s = power.as_str().replace('_', "");
+            let mut s = power.as_str().cow_replace('_', "").into_owned();
             add_separators(&mut s, &SeparatorDir::Right, &self.number);
             out.push_str(&s);
         }
@@ -353,7 +354,9 @@ fn test_with_snapshot() {
         "const foo = -100000_1",
     ];
 
-    Tester::new(NumericSeparatorsStyle::NAME, vec![], fail).test_and_snapshot();
+    let fix = vec![("const foo = 0b10_10_0001", "const foo = 0b1010_0001")];
+
+    Tester::new(NumericSeparatorsStyle::NAME, vec![], fail).expect_fix(fix).test_and_snapshot();
 }
 
 #[test]
@@ -626,7 +629,7 @@ fn test_with_config() {
 
     let fail = vec![];
 
-    Tester::new(NumericSeparatorsStyle::NAME, pass, fail).test();
+    Tester::new(NumericSeparatorsStyle::NAME, pass, fail).intentionally_allow_no_fix_tests().test();
 }
 
 #[test]
@@ -641,9 +644,10 @@ fn test_misc() {
         "const foo = '1234567n'",
     ];
 
-    let fail = vec![];
+    let fail = vec!["1_23_4444"];
+    let fix = vec![("1_23_4444", "1_234_444")];
 
-    Tester::new(NumericSeparatorsStyle::NAME, pass, fail).test();
+    Tester::new(NumericSeparatorsStyle::NAME, pass, fail).expect_fix(fix).test();
 }
 
 #[cfg(test)]

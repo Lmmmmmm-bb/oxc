@@ -1,8 +1,17 @@
 //! [JSX](https://facebook.github.io/jsx)
 
-use crate::ast::*;
-use oxc_span::{Atom, Span};
 use std::fmt;
+
+use oxc_span::{Atom, Span};
+
+use crate::ast::*;
+
+#[cfg(feature = "serialize")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_APPEND_CONTENT: &'static str = r#"
+export type JSXElementName = JSXIdentifier | JSXNamespacedName | JSXMemberExpression;
+export type JSXMemberExpressionObject = JSXIdentifier | JSXMemberExpression;
+"#;
 
 // 1.2 JSX Elements
 
@@ -26,11 +35,42 @@ impl<'a> fmt::Display for JSXNamespacedName<'a> {
 }
 
 impl<'a> JSXElementName<'a> {
+    pub fn get_identifier(&self) -> Option<&IdentifierReference<'a>> {
+        match self {
+            JSXElementName::Identifier(_)
+            | JSXElementName::NamespacedName(_)
+            | JSXElementName::ThisExpression(_) => None,
+            JSXElementName::IdentifierReference(ident) => Some(ident),
+            JSXElementName::MemberExpression(member_expr) => member_expr.get_identifier(),
+        }
+    }
+
     pub fn get_identifier_name(&self) -> Option<Atom<'a>> {
         match self {
             Self::Identifier(id) => Some(id.as_ref().name.clone()),
             Self::IdentifierReference(id) => Some(id.as_ref().name.clone()),
             _ => None,
+        }
+    }
+}
+
+impl<'a> JSXMemberExpression<'a> {
+    pub fn get_identifier(&self) -> Option<&IdentifierReference<'a>> {
+        self.object.get_identifier()
+    }
+}
+
+impl<'a> JSXMemberExpressionObject<'a> {
+    pub fn get_identifier(&self) -> Option<&IdentifierReference<'a>> {
+        let mut object = self;
+        loop {
+            match object {
+                JSXMemberExpressionObject::IdentifierReference(ident) => return Some(ident),
+                JSXMemberExpressionObject::MemberExpression(member_expr) => {
+                    object = &member_expr.object;
+                }
+                JSXMemberExpressionObject::ThisExpression(_) => return None,
+            }
         }
     }
 }
@@ -46,6 +86,7 @@ impl<'a> fmt::Display for JSXMemberExpressionObject<'a> {
         match self {
             Self::IdentifierReference(id) => id.fmt(f),
             Self::MemberExpression(expr) => expr.fmt(f),
+            Self::ThisExpression(_) => "this".fmt(f),
         }
     }
 }
@@ -57,6 +98,7 @@ impl<'a> fmt::Display for JSXElementName<'a> {
             Self::IdentifierReference(ident) => ident.fmt(f),
             Self::NamespacedName(namespaced) => namespaced.fmt(f),
             Self::MemberExpression(member_expr) => member_expr.fmt(f),
+            Self::ThisExpression(_) => "this".fmt(f),
         }
     }
 }
@@ -89,6 +131,7 @@ impl<'a> JSXAttributeName<'a> {
             Self::NamespacedName(_) => None,
         }
     }
+
     pub fn get_identifier(&self) -> &JSXIdentifier<'a> {
         match self {
             Self::Identifier(ident) => ident.as_ref(),

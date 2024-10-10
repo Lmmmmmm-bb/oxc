@@ -1,3 +1,4 @@
+use cow_utils::CowUtils;
 use oxc_ast::{ast::JSXAttributeItem, AstKind};
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
@@ -21,12 +22,14 @@ declare_oxc_lint! {
     ///
     /// ### Example
     ///
+    /// Examples of **incorrect** code for this rule:
     /// ```jsx
-    /// // Good
-    ///	<meta charset="UTF-8" />
-    ///
-    /// // Bad
     /// <meta charset="UTF-8" aria-hidden="false" />
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```jsx
+    ///	<meta charset="UTF-8" />
     /// ```
     ///
     AriaUnsupportedElements,
@@ -55,7 +58,8 @@ impl Rule for AriaUnsupportedElements {
                         JSXAttributeItem::Attribute(attr) => attr,
                         JSXAttributeItem::SpreadAttribute(_) => continue,
                     };
-                    let attr_name = get_jsx_attribute_name(&attr.name).to_lowercase();
+                    let attr_name = get_jsx_attribute_name(&attr.name);
+                    let attr_name = attr_name.cow_to_lowercase();
                     if INVALID_ATTRIBUTES.contains(&attr_name) {
                         ctx.diagnostic_with_fix(
                             aria_unsupported_elements_diagnostic(attr.span, &attr_name),

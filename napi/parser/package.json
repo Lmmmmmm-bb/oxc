@@ -1,10 +1,10 @@
 {
   "name": "@oxc-parser/binding",
+  "packageManager": "pnpm@9.9.0",
   "private": true,
   "scripts": {
     "build": "napi build --platform --release",
-    "test": "node test.mjs",
-    "bench": "node parse.bench.mjs"
+    "test": "vitest run ./test"
   },
   "engines": {
     "node": ">=14.*"

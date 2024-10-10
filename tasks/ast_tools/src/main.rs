@@ -1,3 +1,4 @@
+#![allow(clippy::disallowed_methods)]
 use std::{cell::RefCell, io::Read, path::PathBuf, rc::Rc};
 
 use bpaf::{Bpaf, Parser};
@@ -16,7 +17,7 @@ mod rust_ast;
 mod schema;
 mod util;
 
-use derives::{DeriveCloneIn, DeriveGetSpan, DeriveGetSpanMut};
+use derives::{DeriveCloneIn, DeriveContentEq, DeriveContentHash, DeriveGetSpan, DeriveGetSpanMut};
 use fmt::cargo_fmt;
 use generators::{
     AssertLayouts, AstBuilderGenerator, AstKindGenerator, Generator, GeneratorOutput,
@@ -33,7 +34,7 @@ static SOURCE_PATHS: &[&str] = &[
     "crates/oxc_syntax/src/number.rs",
     "crates/oxc_syntax/src/operator.rs",
     "crates/oxc_span/src/span/types.rs",
-    "crates/oxc_span/src/source_type/types.rs",
+    "crates/oxc_span/src/source_type/mod.rs",
     "crates/oxc_regular_expression/src/ast.rs",
 ];
 
@@ -50,12 +51,18 @@ pub struct CliOptions {
     /// Don't run cargo fmt at the end
     #[bpaf(switch)]
     no_fmt: bool,
+    /// Prints no logs.
+    quiet: bool,
     /// Path of output `schema.json`.
     schema: Option<std::path::PathBuf>,
 }
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let cli_options = cli_options().run();
+
+    if cli_options.quiet {
+        logger::quiet().normalize_with("Failed to set logger to `quiet` mode.")?;
+    }
 
     let AstCodegenResult { outputs, schema } = SOURCE_PATHS
         .iter()
@@ -65,6 +72,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .derive(DeriveCloneIn)
         .derive(DeriveGetSpan)
         .derive(DeriveGetSpanMut)
+        .derive(DeriveContentEq)
+        .derive(DeriveContentHash)
         .generate(AssertLayouts)
         .generate(AstKindGenerator)
         .generate(AstBuilderGenerator)
@@ -75,9 +84,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     if !cli_options.dry_run {
         let side_effects = outputs
             .into_iter()
-            .filter_map(|it| {
+            .map(|it| {
                 let path = it.path();
+                log!("Writing {path}...");
                 it.apply().unwrap();
+                logln!(" Done!");
                 path
             })
             .collect();
@@ -123,7 +134,44 @@ fn write_ci_filter(
         push_item(side_effect.as_str());
     }
 
-    push_item("tasks/ast_codegen/src/**");
+    push_item("tasks/ast_tools/src/**");
+    push_item(output_path);
 
-    write_all_to(output.as_bytes(), output_path)
+    log!("Writing {output_path}...");
+    write_all_to(output.as_bytes(), output_path)?;
+    logln!(" Done!");
+    Ok(())
 }
+
+#[macro_use]
+mod logger {
+    use std::sync::OnceLock;
+
+    static LOG: OnceLock<bool> = OnceLock::new();
+
+    pub(super) fn quiet() -> Result<(), bool> {
+        LOG.set(false)
+    }
+
+    pub(super) fn __internal_log_enable() -> bool {
+        *LOG.get_or_init(|| true)
+    }
+
+    macro_rules! log {
+        ($fmt:literal $(, $args:expr)*) => {
+            if $crate::logger::__internal_log_enable() {
+                print!("{}", format!($fmt$(, $args)*));
+            }
+        }
+    }
+
+    macro_rules! logln {
+        ($fmt:literal $(, $args:expr)*) => {
+            $crate::log!("{}\n", format!($fmt $(, $args)*));
+        }
+    }
+
+    pub(super) use {log, logln};
+}
+
+pub(crate) use logger::{log, logln};

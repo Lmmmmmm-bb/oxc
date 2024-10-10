@@ -13,10 +13,10 @@ use crate::{
     AstNode,
 };
 
-fn consistent_function_scoping(x0: Span) -> OxcDiagnostic {
+fn consistent_function_scoping(span: Span) -> OxcDiagnostic {
     OxcDiagnostic::warn("Function does not capture any variables from the outer scope.")
         .with_help("Move this function to the outer scope.")
-        .with_label(x0)
+        .with_label(span)
 }
 
 #[derive(Debug, Default, Clone)]
@@ -157,51 +157,61 @@ impl Rule for ConsistentFunctionScoping {
 
         Self(Box::new(configuration))
     }
+
     fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
-        let (function_declaration_symbol_id, function_body, reporter_span) = match node.kind() {
-            AstKind::Function(function) => {
-                if let Some(AstKind::AssignmentExpression(_)) = ctx.nodes().parent_kind(node.id()) {
-                    return;
-                }
+        let (function_declaration_symbol_id, function_body, reporter_span) =
+            match node.kind() {
+                AstKind::Function(function) => {
+                    if function.is_typescript_syntax() {
+                        return;
+                    }
 
-                if function.is_typescript_syntax() {
-                    return;
-                }
+                    if let Some(func_scope_id) = function.scope_id.get() {
+                        if let Some(parent_scope_id) = ctx.scopes().get_parent_id(func_scope_id) {
+                            // Example: const foo = function bar() {};
+                            // The bar function scope id is 1. In order to ignore this rule,
+                            // its parent's scope id (in this case `foo`'s scope id is 0 and is equal to root scope id)
+                            // should be considered.
+                            if parent_scope_id == ctx.scopes().root_scope_id() {
+                                return;
+                            }
+                        }
+                    }
 
-                // NOTE: function.body will always be some here because of
-                // checks in `is_typescript_syntax`
-                let Some(function_body) = &function.body else { return };
+                    // NOTE: function.body will always be some here because of
+                    // checks in `is_typescript_syntax`
+                    let Some(function_body) = &function.body else { return };
 
-                if let Some(binding_ident) = get_function_like_declaration(node, ctx) {
-                    (
-                        binding_ident.symbol_id.get().unwrap(),
-                        function_body,
-                        function
-                            .id
-                            .as_ref()
-                            .map_or(Span::sized(function.span.start, 8), |func_binding_ident| {
-                                func_binding_ident.span
-                            }),
-                    )
-                } else if let Some(function_id) = &function.id {
-                    (function_id.symbol_id.get().unwrap(), function_body, function_id.span())
-                } else {
-                    return;
+                    if let Some(binding_ident) = get_function_like_declaration(node, ctx) {
+                        (
+                            binding_ident.symbol_id.get().unwrap(),
+                            function_body,
+                            function.id.as_ref().map_or(
+                                Span::sized(function.span.start, 8),
+                                |func_binding_ident| func_binding_ident.span,
+                            ),
+                        )
+                    } else if let Some(function_id) = &function.id {
+                        let Some(symbol_id) = function_id.symbol_id.get() else {
+                            return;
+                        };
+                        (symbol_id, function_body, function_id.span())
+                    } else {
+                        return;
+                    }
                 }
-            }
-            AstKind::ArrowFunctionExpression(arrow_function) if self.check_arrow_functions => {
-                if let Some(binding_ident) = get_function_like_declaration(node, ctx) {
-                    (
-                        binding_ident.symbol_id.get().unwrap(),
-                        &arrow_function.body,
-                        binding_ident.span(),
-                    )
-                } else {
-                    return;
+                AstKind::ArrowFunctionExpression(arrow_function) if self.check_arrow_functions => {
+                    let Some(binding_ident) = get_function_like_declaration(node, ctx) else {
+                        return;
+                    };
+                    let Some(symbol_id) = binding_ident.symbol_id.get() else {
+                        return;
+                    };
+
+                    (symbol_id, &arrow_function.body, binding_ident.span())
                 }
-            }
-            _ => return,
-        };
+                _ => return,
+            };
 
         // if the function is declared at the root scope, we don't need to check anything
         if ctx.symbols().get_scope_id(function_declaration_symbol_id)
@@ -284,6 +294,7 @@ impl<'a> Visit<'a> for ReferencesFinder {
             self.in_function += 1;
         }
     }
+
     fn leave_node(&mut self, kind: AstKind<'a>) {
         if let AstKind::Function(_) = kind {
             self.in_function -= 1;
@@ -584,6 +595,18 @@ fn test() {
         ("module.exports = function foo() {};", None),
         ("module.exports.foo = function foo() {};", None),
         ("foo.bar.func = function foo() {};", None),
+        (
+            "let inner;
+
+            function foo1() {
+                inner = function() {}
+            }
+            function foo2() {
+                inner = function() {}
+            }",
+            None,
+        ),
+        ("if(f) function f(){}", None),
     ];
 
     let fail = vec![
@@ -621,6 +644,14 @@ fn test() {
         ),
         ("function foo() { function bar() { return <JSX/>; } }", None),
         ("function doFoo(Foo) { const doBar = () => arguments; return doBar(); };", None),
+        (
+            "let inner;
+
+            function outer() {
+                inner = function inner() {}
+            }", 
+            None,
+        ),
         // end of cases that eslint-plugin-unicorn passes, but we fail.
         (
             "function doFoo(foo) {

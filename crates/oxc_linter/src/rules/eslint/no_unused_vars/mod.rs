@@ -11,15 +11,17 @@ mod usage;
 
 use std::ops::Deref;
 
+use options::NoUnusedVarsOptions;
 use oxc_ast::AstKind;
 use oxc_macros::declare_oxc_lint;
 use oxc_semantic::{AstNode, ScopeFlags, SymbolFlags, SymbolId};
 use oxc_span::GetSpan;
-
-use crate::{context::LintContext, rule::Rule};
-use options::NoUnusedVarsOptions;
-
 use symbol::Symbol;
+
+use crate::{
+    context::{ContextHost, LintContext},
+    rule::Rule,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct NoUnusedVars(Box<NoUnusedVarsOptions>);
@@ -199,7 +201,7 @@ impl Deref for NoUnusedVars {
 
 impl Rule for NoUnusedVars {
     fn from_configuration(value: serde_json::Value) -> Self {
-        Self(Box::new(NoUnusedVarsOptions::from(value)))
+        Self(Box::new(NoUnusedVarsOptions::try_from(value).unwrap()))
     }
 
     fn run_on_symbol(&self, symbol_id: SymbolId, ctx: &LintContext<'_>) {
@@ -211,7 +213,7 @@ impl Rule for NoUnusedVars {
         self.run_on_symbol_internal(&symbol, ctx);
     }
 
-    fn should_run(&self, ctx: &LintContext) -> bool {
+    fn should_run(&self, ctx: &ContextHost) -> bool {
         // ignore .d.ts and vue files.
         // 1. declarations have side effects (they get merged together)
         // 2. vue scripts declare variables that get used in the template, which
@@ -297,6 +299,12 @@ impl NoUnusedVars {
                     return;
                 }
                 ctx.diagnostic(diagnostic::param(symbol));
+            }
+            AstKind::BindingRestElement(_) => {
+                if NoUnusedVars::is_allowed_binding_rest_element(symbol) {
+                    return;
+                }
+                ctx.diagnostic(diagnostic::declared(symbol));
             }
             AstKind::Class(_) | AstKind::Function(_) => {
                 if self.is_allowed_class_or_function(symbol) {

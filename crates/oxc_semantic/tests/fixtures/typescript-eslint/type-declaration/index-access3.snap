@@ -2,6 +2,10 @@
 source: crates/oxc_semantic/tests/main.rs
 input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaration/index-access3.ts
 ---
+================================================================================
+SCOPES
+================================================================================
+
 [
   {
     "children": [
@@ -45,7 +49,7 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaratio
         "node": "VariableDeclarator(k)",
         "references": [
           {
-            "flags": "ReferenceFlags(Read | TSTypeQuery)",
+            "flags": "ReferenceFlags(Type)",
             "id": 1,
             "name": "k",
             "node_id": 21
@@ -62,3 +66,9 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaratio
     ]
   }
 ]
+
+================================================================================
+CONFORMANCE
+================================================================================
+
+All tests passed.

@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use oxc_ast::{
     ast::{
         ArrowFunctionExpression, BindingPatternKind, Expression, FunctionType, JSXAttributeItem,
@@ -9,12 +7,13 @@ use oxc_ast::{
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_span::Span;
+use oxc_span::{CompactStr, Span};
 use oxc_syntax::operator::UnaryOperator;
+use rustc_hash::FxHashSet;
 
 use crate::{
     ast_util::outermost_paren_parent,
-    context::LintContext,
+    context::{ContextHost, LintContext},
     rule::Rule,
     rules::eslint::array_callback_return::return_checker::{
         check_statement, StatementReturnStatus,
@@ -32,7 +31,7 @@ pub struct ExplicitFunctionReturnTypeConfig {
     allow_direct_const_assertion_in_arrow_functions: bool,
     allow_concise_arrow_function_expressions_starting_with_void: bool,
     allow_functions_without_type_parameters: bool,
-    allowed_names: HashSet<String>,
+    allowed_names: FxHashSet<CompactStr>,
     allow_higher_order_functions: bool,
     allow_iifes: bool,
 }
@@ -111,6 +110,7 @@ declare_oxc_lint!(
 
 fn explicit_function_return_type_diagnostic(span: Span) -> OxcDiagnostic {
     OxcDiagnostic::warn("Missing return type on function.")
+        // TODO: actually provide a helpful message.
         .with_help("Require explicit return types on functions and class methods.")
         .with_label(span)
 }
@@ -143,10 +143,7 @@ impl Rule for ExplicitFunctionReturnType {
                 .and_then(|x| x.get("allowedNames"))
                 .and_then(serde_json::Value::as_array)
                 .map(|v| {
-                    v.iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .map(ToString::to_string)
-                        .collect()
+                    v.iter().filter_map(serde_json::Value::as_str).map(CompactStr::from).collect()
                 })
                 .unwrap_or_default(),
             allow_higher_order_functions: options
@@ -163,7 +160,7 @@ impl Rule for ExplicitFunctionReturnType {
     fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
         match node.kind() {
             AstKind::Function(func) => {
-                if !func.is_declaration() & !func.is_expression() {
+                if !func.is_declaration() && !func.is_expression() {
                     return;
                 }
 
@@ -299,7 +296,7 @@ impl Rule for ExplicitFunctionReturnType {
         }
     }
 
-    fn should_run(&self, ctx: &LintContext) -> bool {
+    fn should_run(&self, ctx: &ContextHost) -> bool {
         ctx.source_type().is_typescript()
     }
 }
@@ -548,7 +545,7 @@ fn is_function_argument(parent: &AstNode, callee: Option<&AstNode>) -> bool {
         return true;
     }
 
-    match call_expr.callee.without_parenthesized() {
+    match call_expr.callee.without_parentheses() {
         Expression::FunctionExpression(func_expr) => {
             let AstKind::Function(callee_func_expr) = callee.unwrap().kind() else { return false };
             func_expr.span != callee_func_expr.span

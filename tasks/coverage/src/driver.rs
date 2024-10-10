@@ -1,23 +1,25 @@
-use std::{collections::HashSet, ops::ControlFlow, path::PathBuf};
+use std::{ops::ControlFlow, path::PathBuf};
 
-use oxc::CompilerInterface;
+use rustc_hash::FxHashSet;
 
-#[allow(clippy::wildcard_imports)]
-use oxc::ast::{ast::*, Trivias};
-use oxc::codegen::CodegenOptions;
-use oxc::diagnostics::OxcDiagnostic;
-use oxc::minifier::CompressOptions;
-use oxc::parser::{ParseOptions, ParserReturn};
-use oxc::semantic::{
-    post_transform_checker::{check_semantic_after_transform, check_semantic_ids},
-    SemanticBuilderReturn,
+use oxc::{
+    allocator::Allocator,
+    ast::{ast::Program, Trivias},
+    codegen::{CodegenOptions, CodegenReturn},
+    diagnostics::OxcDiagnostic,
+    minifier::CompressOptions,
+    parser::{ParseOptions, ParserReturn},
+    regular_expression::{Parser, ParserOptions},
+    semantic::{Semantic, SemanticBuilderReturn},
+    span::{cmp::ContentEq, SourceType, Span},
+    transformer::{TransformOptions, TransformerReturn},
+    CompilerInterface,
 };
-use oxc::span::{SourceType, Span};
-use oxc::transformer::{TransformOptions, TransformerReturn};
+use oxc_tasks_transform_checker::{check_semantic_after_transform, check_semantic_ids};
 
 use crate::suite::TestResult;
 
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 #[derive(Default)]
 pub struct Driver {
     pub path: PathBuf,
@@ -65,10 +67,13 @@ impl CompilerInterface for Driver {
     }
 
     fn after_parse(&mut self, parser_return: &mut ParserReturn) -> ControlFlow<()> {
-        let ParserReturn { program, trivias, panicked, .. } = parser_return;
+        let ParserReturn { program, trivias, panicked, errors } = parser_return;
         self.panicked = *panicked;
         if self.check_comments(trivias) {
             return ControlFlow::Break(());
+        }
+        if (errors.is_empty() || !*panicked) && program.source_type.is_unambiguous() {
+            self.errors.push(OxcDiagnostic::error("SourceType must not be unambiguous."));
         }
         // Make sure serialization doesn't crash; also for code coverage.
         let _serializer = program.serializer();
@@ -78,7 +83,7 @@ impl CompilerInterface for Driver {
     fn after_semantic(
         &mut self,
         program: &mut Program<'_>,
-        _semantic_return: &mut SemanticBuilderReturn,
+        ret: &mut SemanticBuilderReturn,
     ) -> ControlFlow<()> {
         if self.check_semantic {
             if let Some(errors) = check_semantic_ids(program) {
@@ -86,6 +91,7 @@ impl CompilerInterface for Driver {
                 return ControlFlow::Break(());
             }
         };
+        self.check_regular_expressions(&ret.semantic);
         ControlFlow::Continue(())
     }
 
@@ -107,8 +113,8 @@ impl CompilerInterface for Driver {
         ControlFlow::Continue(())
     }
 
-    fn after_codegen(&mut self, printed: String) {
-        self.printed = printed;
+    fn after_codegen(&mut self, ret: CodegenReturn) {
+        self.printed = ret.code;
     }
 }
 
@@ -140,7 +146,7 @@ impl Driver {
     }
 
     fn check_comments(&mut self, trivias: &Trivias) -> bool {
-        let mut uniq: HashSet<Span> = HashSet::new();
+        let mut uniq: FxHashSet<Span> = FxHashSet::default();
         for comment in trivias.comments() {
             if !uniq.insert(comment.span) {
                 self.errors
@@ -149,5 +155,40 @@ impl Driver {
             }
         }
         false
+    }
+
+    /// Idempotency test for printing regular expressions.
+    fn check_regular_expressions(&mut self, semantic: &Semantic<'_>) {
+        let allocator = Allocator::default();
+        for literal in semantic.nodes().iter().filter_map(|node| node.kind().as_reg_exp_literal()) {
+            let Some(pattern) = literal.regex.pattern.as_pattern() else {
+                continue;
+            };
+            let printed1 = pattern.to_string();
+            let flags = literal.regex.flags.to_string();
+            let options = ParserOptions::default().with_flags(&flags);
+            match Parser::new(&allocator, &printed1, options).parse() {
+                Ok(pattern2) => {
+                    let printed2 = pattern2.to_string();
+                    if !pattern2.content_eq(pattern) {
+                        self.errors.push(OxcDiagnostic::error(format!(
+                        "Regular Expression content mismatch for `{}`: `{pattern}` == `{pattern2}`",
+                        literal.span.source_text(semantic.source_text())
+                        )));
+                    }
+                    if printed1 != printed2 {
+                        self.errors.push(OxcDiagnostic::error(format!(
+                            "Regular Expression mismatch: {printed1} {printed2}"
+                        )));
+                    }
+                }
+                Err(error) => {
+                    self.errors.push(OxcDiagnostic::error(format!(
+                        "Failed to re-parse `{}`, printed as `/{printed1}/{flags}`, {error}",
+                        literal.span.source_text(semantic.source_text()),
+                    )));
+                }
+            };
+        }
     }
 }

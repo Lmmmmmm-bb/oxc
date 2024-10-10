@@ -1,16 +1,21 @@
+use cow_utils::CowUtils;
 use oxc_ast::{
     ast::{JSXAttributeItem, JSXAttributeName},
     AstKind,
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_semantic::AstNodeId;
+use oxc_semantic::NodeId;
 use oxc_span::Span;
 
 use crate::{context::LintContext, rule::Rule, AstNode};
 
-fn text_encoding_identifier_case_diagnostic(span: Span, x1: &str, x2: &str) -> OxcDiagnostic {
-    OxcDiagnostic::warn(format!("Prefer `{x1}` over `{x2}`.")).with_label(span)
+fn text_encoding_identifier_case_diagnostic(
+    span: Span,
+    good_encoding: &str,
+    bad_encoding: &str,
+) -> OxcDiagnostic {
+    OxcDiagnostic::warn(format!("Prefer `{good_encoding}` over `{bad_encoding}`.")).with_label(span)
 }
 
 #[derive(Debug, Default, Clone)]
@@ -84,7 +89,7 @@ fn get_replacement(node: &str) -> Option<&'static str> {
         return None;
     }
 
-    let node_lower = node.to_ascii_lowercase();
+    let node_lower = node.cow_to_ascii_lowercase();
 
     if node_lower == "utf-8" || node_lower == "utf8" {
         return Some("utf8");
@@ -97,7 +102,7 @@ fn get_replacement(node: &str) -> Option<&'static str> {
     None
 }
 
-fn is_jsx_meta_elem_with_charset_attr(id: AstNodeId, ctx: &LintContext) -> bool {
+fn is_jsx_meta_elem_with_charset_attr(id: NodeId, ctx: &LintContext) -> bool {
     let Some(parent) = ctx.nodes().parent_node(id) else {
         return false;
     };

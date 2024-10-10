@@ -1,13 +1,16 @@
 {
   "name": "oxc",
   "private": true,
-  "packageManager": "pnpm@9.9.0",
+  "packageManager": "pnpm@9.12.1",
   "volta": {
     "node": "22.7.0"
   },
+  "scripts": {
+    "build": "pnpm --workspace-concurrency=1 --filter './napi/*' build",
+    "test": "pnpm --workspace-concurrency=1 --filter './napi/*' test"
+  },
   "devDependencies": {
-    "@napi-rs/cli": "3.0.0-alpha.61",
-    "es-module-lexer": "^1.4.1",
-    "tinybench": "^2.6.0"
+    "@napi-rs/cli": "catalog:",
+    "vitest": "catalog:"
   }
 }

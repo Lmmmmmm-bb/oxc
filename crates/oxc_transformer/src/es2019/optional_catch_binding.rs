@@ -32,26 +32,20 @@
 //! * Babel plugin implementation: <https://github.com/babel/babel/tree/main/packages/babel-plugin-transform-optional-catch-binding>
 //! * Optional catch binding TC39 proposal: <https://github.com/tc39/proposal-optional-catch-binding>
 
-use std::cell::Cell;
-
 use oxc_ast::ast::*;
 use oxc_semantic::SymbolFlags;
 use oxc_span::SPAN;
 use oxc_traverse::{Traverse, TraverseCtx};
 
-use crate::context::Ctx;
+pub struct OptionalCatchBinding;
 
-pub struct OptionalCatchBinding<'a> {
-    _ctx: Ctx<'a>,
-}
-
-impl<'a> OptionalCatchBinding<'a> {
-    pub fn new(ctx: Ctx<'a>) -> Self {
-        Self { _ctx: ctx }
+impl OptionalCatchBinding {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl<'a> Traverse<'a> for OptionalCatchBinding<'a> {
+impl<'a> Traverse<'a> for OptionalCatchBinding {
     /// If CatchClause has no param, add a parameter called `unused`.
     #[allow(clippy::unused_self)]
     fn enter_catch_clause(&mut self, clause: &mut CatchClause<'a>, ctx: &mut TraverseCtx<'a>) {
@@ -59,19 +53,12 @@ impl<'a> Traverse<'a> for OptionalCatchBinding<'a> {
             return;
         }
 
-        let block_scope_id = clause.body.scope_id.get().unwrap();
-        let symbol_id = ctx.generate_uid(
+        let binding = ctx.generate_uid(
             "unused",
-            block_scope_id,
+            clause.body.scope_id.get().unwrap(),
             SymbolFlags::CatchVariable | SymbolFlags::FunctionScopedVariable,
         );
-        let name = ctx.ast.atom(ctx.symbols().get_name(symbol_id));
-        let binding_identifier =
-            BindingIdentifier { span: SPAN, symbol_id: Cell::new(Some(symbol_id)), name };
-        let binding_pattern_kind =
-            ctx.ast.binding_pattern_kind_from_binding_identifier(binding_identifier);
-        let binding_pattern =
-            ctx.ast.binding_pattern(binding_pattern_kind, None::<TSTypeAnnotation<'a>>, false);
+        let binding_pattern = binding.create_binding_pattern(ctx);
         let param = ctx.ast.catch_parameter(SPAN, binding_pattern);
         clause.param = Some(param);
     }

@@ -4,6 +4,62 @@ All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
 
+## [0.31.0] - 2024-10-08
+
+- 020bb80 codegen: [**BREAKING**] Change to `CodegenReturn::code` and `CodegenReturn::map` (#6310) (Boshen)
+
+- 4f6bc79 transformer: [**BREAKING**] Remove `source_type` param from `Transformer::new` (#6251) (overlookmotel)
+
+### Features
+
+- abd3a9f napi/transform: Perform dce after define plugin (#6312) (Boshen)
+- a0ccc26 napi/transform: Add `lang` option to change source type (#6309) (Boshen)
+- 2f888ed oxc: Add napi transform options (#6268) (Boshen)
+- 8729755 oxc,napi/transform: Napi/transform use oxc compiler pipeline (#6298) (Boshen)
+
+### Refactor
+
+- aa0dbb6 oxc: Add `napi` feature, change napi parser to use `oxc` crate (#6265) (Boshen)
+
+## [0.30.2] - 2024-09-27
+
+### Documentation
+
+- d60ceb4 oxc: Add README.md and crate-level docs (#6035) (DonIsaac)
+
+## [0.30.1] - 2024-09-24
+
+### Documentation
+
+- 18371dd oxc: Include feature-guarded modules in docs.rs (#6012) (DonIsaac)
+
+## [0.30.0] - 2024-09-23
+
+### Features
+
+- 3230ae5 semantic: Add `SemanticBuilder::with_excess_capacity` (#5762) (overlookmotel)
+
+### Documentation
+
+- bacfbb8 oxc: Add submodule documentation (#5984) (DonIsaac)
+
+## [0.28.0] - 2024-09-11
+
+- b060525 semantic: [**BREAKING**] Remove `source_type` argument from `SemanticBuilder::new` (#5553) (Boshen)
+
+### Features
+
+- 2016bae coverage: Add regular expression idempotency test (#5676) (Boshen)
+
+### Refactor
+
+
+## [0.27.0] - 2024-09-06
+
+### Features
+
+- ed8ab6d oxc: Conditional expose `oxc_cfg` in `oxc` crate (#5524) (IWANABETHATGUY)
+
 ## [0.26.0] - 2024-09-03
 
 ### Features

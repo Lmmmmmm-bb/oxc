@@ -1,7 +1,7 @@
 use oxc_ast::{ast::Expression, AstKind};
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_span::Span;
+use oxc_span::{CompactStr, Span};
 
 use crate::{context::LintContext, rule::Rule, AstNode};
 
@@ -21,7 +21,7 @@ pub struct NoConsoleConfig {
     /// console.log('foo'); // will error
     /// console.info('bar'); // will not error
     /// ```
-    pub allow: Vec<String>,
+    pub allow: Vec<CompactStr>,
 }
 
 impl std::ops::Deref for NoConsole {
@@ -58,31 +58,29 @@ impl Rule for NoConsole {
                 .and_then(|v| v.get("allow"))
                 .and_then(serde_json::Value::as_array)
                 .map(|v| {
-                    v.iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .map(ToString::to_string)
-                        .collect()
+                    v.iter().filter_map(serde_json::Value::as_str).map(CompactStr::from).collect()
                 })
                 .unwrap_or_default(),
         }))
     }
 
     fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
-        if let AstKind::CallExpression(call_expr) = node.kind() {
-            if let Some(mem) = call_expr.callee.as_member_expression() {
-                if let Expression::Identifier(ident) = mem.object() {
-                    if ctx.semantic().is_reference_to_global_variable(ident)
-                        && ident.name == "console"
-                        && !self
-                            .allow
-                            .iter()
-                            .any(|s| mem.static_property_name().is_some_and(|f| f == s))
-                    {
-                        if let Some(mem) = mem.static_property_info() {
-                            ctx.diagnostic(no_console_diagnostic(mem.0));
-                        }
-                    }
-                }
+        let AstKind::CallExpression(call_expr) = node.kind() else {
+            return;
+        };
+        let Some(mem) = call_expr.callee.as_member_expression() else {
+            return;
+        };
+        let Expression::Identifier(ident) = mem.object() else {
+            return;
+        };
+
+        if ctx.semantic().is_reference_to_global_variable(ident)
+            && ident.name == "console"
+            && !self.allow.iter().any(|s| mem.static_property_name().is_some_and(|f| f == s))
+        {
+            if let Some(mem) = mem.static_property_info() {
+                ctx.diagnostic(no_console_diagnostic(mem.0));
             }
         }
     }

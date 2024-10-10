@@ -1,11 +1,13 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
+use rustc_hash::FxHashMap;
 use syn::{parse_quote, Ident};
 
+use super::define_generator;
 use crate::{
     codegen::{generated_header, LateCtx},
     generators::ast_kind::BLACK_LIST as KIND_BLACK_LIST,
@@ -15,8 +17,6 @@ use crate::{
     util::{StrExt, ToIdent, TokenStreamExt, TypeWrapper},
     Generator, GeneratorOutput,
 };
-
-use super::define_generator;
 
 define_generator! {
     pub struct VisitGenerator;
@@ -136,12 +136,12 @@ struct VisitBuilder<'a> {
 
     visits: Vec<TokenStream>,
     walks: Vec<TokenStream>,
-    cache: HashMap<Ident, [Option<Cow<'a, Ident>>; 2]>,
+    cache: FxHashMap<Ident, [Option<Cow<'a, Ident>>; 2]>,
 }
 
 impl<'a> VisitBuilder<'a> {
     fn new(ctx: &'a LateCtx, is_mut: bool) -> Self {
-        Self { ctx, is_mut, visits: Vec::new(), walks: Vec::new(), cache: HashMap::new() }
+        Self { ctx, is_mut, visits: Vec::new(), walks: Vec::new(), cache: FxHashMap::default() }
     }
 
     fn build(mut self) -> (/* visits */ Vec<TokenStream>, /* walks */ Vec<TokenStream>) {
@@ -173,14 +173,6 @@ impl<'a> VisitBuilder<'a> {
             quote!(AstType::#ident)
         } else {
             quote!(AstKind::#ident(visitor.alloc(it)))
-        }
-    }
-
-    fn get_iter(&self) -> TokenStream {
-        if self.is_mut {
-            quote!(iter_mut)
-        } else {
-            quote!(iter)
         }
     }
 
@@ -263,10 +255,10 @@ impl<'a> VisitBuilder<'a> {
 
         let (walk_body, may_inline) = if collection {
             let singular_visit = self.get_visitor(def, false, None);
-            let iter = self.get_iter();
+            let iter = if self.is_mut { quote!(it.iter_mut()) } else { quote!(it) };
             (
                 quote! {
-                    for el in it.#iter() {
+                    for el in #iter {
                         visitor.#singular_visit(el);
                     }
                 },
@@ -472,6 +464,7 @@ impl<'a> VisitBuilder<'a> {
         };
 
         let mut enter_scope_at = 0;
+        let mut exit_scope_at: Option<usize> = None;
         let mut enter_node_at = 0;
         let fields_visits: Vec<TokenStream> = struct_
             .fields
@@ -489,6 +482,7 @@ impl<'a> VisitBuilder<'a> {
                 let visit_args = markers.visit.visit_args.clone();
 
                 let have_enter_scope = markers.scope.enter_before;
+                let have_exit_scope = markers.scope.exit_before;
                 let have_enter_node = markers.visit.enter_before;
 
                 let (args_def, args) = visit_args
@@ -511,7 +505,7 @@ impl<'a> VisitBuilder<'a> {
                         }
                     },
                     TypeWrapper::VecOpt => {
-                        let iter = self.get_iter();
+                        let iter = if self.is_mut { quote!(iter_mut) } else { quote!(iter) };
                         quote! {
                             for #name in it.#name.#iter().flatten() {
                                 visitor.#visit(#name #(#args)*);
@@ -533,8 +527,20 @@ impl<'a> VisitBuilder<'a> {
                     };
                     enter_scope_at = ix;
                 }
+                if have_exit_scope {
+                    assert!(
+                        exit_scope_at.is_none(),
+                        "Scopes cannot be exited more than once. Remove the extra `#[scope(exit_before)]` attribute(s)."
+                    );
+                    let scope_exit = &scope_events.1;
+                    result = quote! {
+                        #scope_exit
+                        #result
+                    };
+                    exit_scope_at = Some(ix);
+                }
 
-                #[allow(unreachable_code)]
+                #[expect(unreachable_code)]
                 if have_enter_node {
                     // NOTE: this is disabled intentionally <https://github.com/oxc-project/oxc/pull/4147#issuecomment-2220216905>
                     unreachable!("`#[visit(enter_before)]` attribute is disabled!");
@@ -571,17 +577,25 @@ impl<'a> VisitBuilder<'a> {
             },
         };
 
-        let with_scope_events = |body: TokenStream| match (scope_events, enter_scope_at) {
-            ((enter, leave), 0) => quote! {
-                #enter
-                #body
-                #leave
-            },
-            ((_, leave), _) => quote! {
-                #body
-                #leave
-            },
-        };
+        let with_scope_events =
+            |body: TokenStream| match (scope_events, enter_scope_at, exit_scope_at) {
+                ((enter, leave), 0, None) => quote! {
+                    #enter
+                    #body
+                    #leave
+                },
+                ((_, leave), _, None) => quote! {
+                    #body
+                    #leave
+                },
+                ((enter, _), 0, Some(_)) => quote! {
+                    #enter
+                    #body
+                },
+                ((_, _), _, Some(_)) => quote! {
+                    #body
+                },
+            };
 
         let body = with_node_events(with_scope_events(quote!(#(#fields_visits)*)));
 

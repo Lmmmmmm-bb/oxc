@@ -16,7 +16,10 @@ use oxc::{
     diagnostics::Error,
     minifier::{CompressOptions, Minifier, MinifierOptions},
     parser::{ParseOptions, Parser, ParserReturn},
-    semantic::{ScopeFlags, ScopeId, ScopeTree, SemanticBuilder, SymbolTable},
+    semantic::{
+        dot::{DebugDot, DebugDotContext},
+        ScopeFlags, ScopeId, ScopeTree, SemanticBuilder, SymbolTable,
+    },
     span::SourceType,
     transformer::{EnvOptions, Targets, TransformOptions, Transformer},
 };
@@ -39,6 +42,9 @@ pub struct Oxc {
 
     #[wasm_bindgen(readonly, skip_typescript)]
     pub ir: String,
+
+    #[wasm_bindgen(readonly, skip_typescript, js_name = "controlFlowGraph")]
+    pub control_flow_graph: String,
 
     #[wasm_bindgen(readonly, skip_typescript)]
     #[tsify(type = "SymbolTable")]
@@ -150,6 +156,7 @@ impl Oxc {
             transformer: transform_options,
             codegen: codegen_options,
             minifier: minifier_options,
+            control_flow: control_flow_options,
         } = options;
         let run_options = run_options.unwrap_or_default();
         let parser_options = parser_options.unwrap_or_default();
@@ -157,6 +164,7 @@ impl Oxc {
         let minifier_options = minifier_options.unwrap_or_default();
         let _codegen_options = codegen_options.unwrap_or_default();
         let _transform_options = transform_options.unwrap_or_default();
+        let control_flow_options = control_flow_options.unwrap_or_default();
 
         let allocator = Allocator::default();
 
@@ -189,19 +197,31 @@ impl Oxc {
         self.ir = format!("{:#?}", program.body);
         self.ast = program.serialize(&self.serializer)?;
 
-        let semantic_ret = SemanticBuilder::new(source_text, source_type)
+        let mut semantic_builder = SemanticBuilder::new(source_text);
+        if run_options.transform.unwrap_or_default() {
+            // Estimate transformer will triple scopes, symbols, references
+            semantic_builder = semantic_builder.with_excess_capacity(2.0);
+        }
+        let semantic_ret = semantic_builder
             .with_trivias(trivias.clone())
             .with_check_syntax_error(true)
+            .with_cfg(true)
             .build_module_record(&path, &program)
             .build(&program);
 
+        self.control_flow_graph = semantic_ret.semantic.cfg().map_or_else(String::default, |cfg| {
+            cfg.debug_dot(DebugDotContext::new(
+                semantic_ret.semantic.nodes(),
+                control_flow_options.verbose.unwrap_or_default(),
+            ))
+        });
         if run_options.syntax.unwrap_or_default() {
             self.save_diagnostics(
                 errors.into_iter().chain(semantic_ret.errors).map(Error::from).collect::<Vec<_>>(),
             );
         }
 
-        self.run_linter(&run_options, source_text, source_type, &path, &trivias, &program);
+        self.run_linter(&run_options, source_text, &path, &trivias, &program);
 
         self.run_prettier(&run_options, source_text, source_type);
 
@@ -221,15 +241,9 @@ impl Oxc {
                 targets: Targets::from_query("chrome 51"),
                 ..EnvOptions::default()
             }) {
-                let result = Transformer::new(
-                    &allocator,
-                    &path,
-                    source_type,
-                    source_text,
-                    trivias.clone(),
-                    options,
-                )
-                .build_with_symbols_and_scopes(symbols, scopes, &mut program);
+                let result =
+                    Transformer::new(&allocator, &path, source_text, trivias.clone(), options)
+                        .build_with_symbols_and_scopes(symbols, scopes, &mut program);
                 if !result.errors.is_empty() {
                     self.save_diagnostics(
                         result.errors.into_iter().map(Error::from).collect::<Vec<_>>(),
@@ -271,7 +285,7 @@ impl Oxc {
                 ..CodegenOptions::default()
             })
             .build(&program)
-            .source_text;
+            .code;
 
         Ok(())
     }
@@ -280,14 +294,13 @@ impl Oxc {
         &mut self,
         run_options: &OxcRunOptions,
         source_text: &str,
-        source_type: SourceType,
         path: &Path,
         trivias: &Trivias,
         program: &Program,
     ) {
         // Only lint if there are no syntax errors
         if run_options.lint.unwrap_or_default() && self.diagnostics.borrow().is_empty() {
-            let semantic_ret = SemanticBuilder::new(source_text, source_type)
+            let semantic_ret = SemanticBuilder::new(source_text)
                 .with_cfg(true)
                 .with_trivias(trivias.clone())
                 .build_module_record(path, program)
@@ -409,8 +422,8 @@ impl Oxc {
             .comments()
             .map(|comment| Comment {
                 r#type: match comment.kind {
-                    CommentKind::SingleLine => CommentType::Line,
-                    CommentKind::MultiLine => CommentType::Block,
+                    CommentKind::Line => CommentType::Line,
+                    CommentKind::Block => CommentType::Block,
                 },
                 value: comment.span.source_text(source_text).to_string(),
                 start: comment.span.start,

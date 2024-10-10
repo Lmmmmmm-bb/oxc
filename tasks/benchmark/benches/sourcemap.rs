@@ -6,7 +6,7 @@ use oxc_sourcemap::ConcatSourceMapBuilder;
 use oxc_span::SourceType;
 use oxc_tasks_common::TestFiles;
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn bench_sourcemap(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("sourcemap");
 
@@ -17,16 +17,16 @@ fn bench_sourcemap(criterion: &mut Criterion) {
             let allocator = Allocator::default();
             let ret = Parser::new(&allocator, source_text, source_type).parse();
 
-            let CodegenReturn { source_text: output_txt, .. } = CodeGenerator::new()
+            let CodegenReturn { code: output_txt, .. } = CodeGenerator::new()
                 .enable_source_map(file.file_name.as_str(), source_text)
                 .build(&ret.program);
             let lines = output_txt.matches('\n').count() as u32;
 
             b.iter(|| {
-                let CodegenReturn { source_map, .. } = CodeGenerator::new()
+                let CodegenReturn { map, .. } = CodeGenerator::new()
                     .enable_source_map(file.file_name.as_str(), source_text)
                     .build(&ret.program);
-                if let Some(sourcemap) = source_map {
+                if let Some(sourcemap) = map {
                     let concat_sourcemap_builder = ConcatSourceMapBuilder::from_sourcemaps(&[
                         (&sourcemap, 0),
                         (&sourcemap, lines),

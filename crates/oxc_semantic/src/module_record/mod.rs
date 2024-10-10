@@ -15,12 +15,11 @@ mod module_record_tests {
     use crate::SemanticBuilder;
 
     fn build(source_text: &str) -> Arc<ModuleRecord> {
-        let source_type = SourceType::default().with_module(true);
+        let source_type = SourceType::mjs();
         let allocator = Allocator::default();
         let ret = Parser::new(&allocator, source_text, source_type).parse();
         let program = allocator.alloc(ret.program);
-        let semantic_ret = SemanticBuilder::new(source_text, source_type)
-            .with_trivias(ret.trivias)
+        let semantic_ret = SemanticBuilder::new(source_text)
             .build_module_record(Path::new(""), program)
             .build(program);
         Arc::clone(&semantic_ret.semantic.module_record)

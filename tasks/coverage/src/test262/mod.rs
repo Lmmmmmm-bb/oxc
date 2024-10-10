@@ -51,6 +51,7 @@ pub struct Test262Case {
     code: String,
     meta: MetaData,
     should_fail: bool,
+    always_strict: bool,
     result: TestResult,
 }
 
@@ -79,7 +80,7 @@ impl Case for Test262Case {
     fn new(path: PathBuf, code: String) -> Self {
         let meta = Self::read_metadata(&code);
         let should_fail = Self::compute_should_fail(&meta);
-        Self { path, code, meta, should_fail, result: TestResult::ToBeRun }
+        Self { path, code, meta, should_fail, always_strict: false, result: TestResult::ToBeRun }
     }
 
     fn code(&self) -> &str {
@@ -98,15 +99,14 @@ impl Case for Test262Case {
         self.should_fail
     }
 
+    fn always_strict(&self) -> bool {
+        self.always_strict
+    }
+
     fn skip_test_case(&self) -> bool {
         [
             // ES2025 https://github.com/tc39/proposal-duplicate-named-capturing-groups
             "regexp-duplicate-named-groups",
-            // stage 3 https://github.com/tc39/proposal-regexp-modifiers
-            "regexp-modifiers",
-            // stage 3 https://github.com/tc39/proposal-json-modules
-            // ignored due to https://github.com/tc39/proposal-json-modules/issues/27
-            "json-modules",
             // stage 3 https://github.com/tc39/proposal-source-phase-imports
             "source-phase-imports",
         ]
@@ -124,15 +124,18 @@ impl Case for Test262Case {
         let source_type = SourceType::default().with_script(true);
 
         self.result = if flags.contains(&TestFlag::OnlyStrict) {
-            self.execute(source_type.with_always_strict(true))
+            self.always_strict = true;
+            self.execute(source_type)
         } else if flags.contains(&TestFlag::Module) {
             self.execute(source_type.with_module(true))
         } else if flags.contains(&TestFlag::NoStrict) || flags.contains(&TestFlag::Raw) {
             self.execute(source_type)
         } else {
-            let res = self.execute(source_type.with_always_strict(true));
+            self.always_strict = true;
+            let res = self.execute(source_type);
             if matches!(res, TestResult::Passed) {
-                self.execute(source_type.with_always_strict(false))
+                self.always_strict = false;
+                self.execute(source_type)
             } else {
                 res
             }

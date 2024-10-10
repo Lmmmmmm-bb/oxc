@@ -1,18 +1,12 @@
 mod arrow_functions;
 mod options;
 
-use std::rc::Rc;
-
 pub use arrow_functions::{ArrowFunctions, ArrowFunctionsOptions};
 pub use options::ES2015Options;
 use oxc_ast::ast::*;
 use oxc_traverse::{Traverse, TraverseCtx};
 
-use crate::context::Ctx;
-
-#[allow(dead_code)]
 pub struct ES2015<'a> {
-    ctx: Ctx<'a>,
     options: ES2015Options,
 
     // Plugins
@@ -20,13 +14,11 @@ pub struct ES2015<'a> {
 }
 
 impl<'a> ES2015<'a> {
-    pub fn new(options: ES2015Options, ctx: Ctx<'a>) -> Self {
+    pub fn new(options: ES2015Options) -> Self {
         Self {
             arrow_functions: ArrowFunctions::new(
                 options.arrow_function.clone().unwrap_or_default(),
-                Rc::clone(&ctx),
             ),
-            ctx,
             options,
         }
     }
@@ -51,28 +43,6 @@ impl<'a> Traverse<'a> for ES2015<'a> {
         }
     }
 
-    fn enter_jsx_element_name(&mut self, elem: &mut JSXElementName<'a>, ctx: &mut TraverseCtx<'a>) {
-        if self.options.arrow_function.is_some() {
-            self.arrow_functions.enter_jsx_element_name(elem, ctx);
-        }
-    }
-
-    fn enter_jsx_member_expression_object(
-        &mut self,
-        node: &mut JSXMemberExpressionObject<'a>,
-        ctx: &mut TraverseCtx<'a>,
-    ) {
-        if self.options.arrow_function.is_some() {
-            self.arrow_functions.enter_jsx_member_expression_object(node, ctx);
-        }
-    }
-
-    fn enter_declaration(&mut self, decl: &mut Declaration<'a>, ctx: &mut TraverseCtx<'a>) {
-        if self.options.arrow_function.is_some() {
-            self.arrow_functions.enter_declaration(decl, ctx);
-        }
-    }
-
     fn enter_expression(&mut self, expr: &mut Expression<'a>, ctx: &mut TraverseCtx<'a>) {
         if self.options.arrow_function.is_some() {
             self.arrow_functions.enter_expression(expr, ctx);
@@ -85,31 +55,31 @@ impl<'a> Traverse<'a> for ES2015<'a> {
         }
     }
 
-    fn exit_declaration(&mut self, decl: &mut Declaration<'a>, ctx: &mut TraverseCtx<'a>) {
+    fn enter_static_block(&mut self, block: &mut StaticBlock<'a>, ctx: &mut TraverseCtx<'a>) {
         if self.options.arrow_function.is_some() {
-            self.arrow_functions.exit_declaration(decl, ctx);
+            self.arrow_functions.enter_static_block(block, ctx);
         }
     }
 
-    fn enter_class(&mut self, class: &mut Class<'a>, ctx: &mut TraverseCtx<'a>) {
+    fn exit_static_block(&mut self, block: &mut StaticBlock<'a>, ctx: &mut TraverseCtx<'a>) {
         if self.options.arrow_function.is_some() {
-            self.arrow_functions.enter_class(class, ctx);
+            self.arrow_functions.exit_static_block(block, ctx);
         }
     }
 
-    fn exit_class(&mut self, class: &mut Class<'a>, ctx: &mut TraverseCtx<'a>) {
+    fn enter_jsx_element_name(&mut self, node: &mut JSXElementName<'a>, ctx: &mut TraverseCtx<'a>) {
         if self.options.arrow_function.is_some() {
-            self.arrow_functions.exit_class(class, ctx);
+            self.arrow_functions.enter_jsx_element_name(node, ctx);
         }
     }
 
-    fn enter_variable_declarator(
+    fn enter_jsx_member_expression_object(
         &mut self,
-        node: &mut VariableDeclarator<'a>,
+        node: &mut JSXMemberExpressionObject<'a>,
         ctx: &mut TraverseCtx<'a>,
     ) {
         if self.options.arrow_function.is_some() {
-            self.arrow_functions.enter_variable_declarator(node, ctx);
+            self.arrow_functions.enter_jsx_member_expression_object(node, ctx);
         }
     }
 }

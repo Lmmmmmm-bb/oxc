@@ -1,7 +1,7 @@
 use oxc_ast::AstKind;
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_span::Span;
+use oxc_span::{CompactStr, Span};
 
 use crate::{
     context::LintContext,
@@ -23,7 +23,7 @@ pub struct HeadingHasContent(Box<HeadingHasContentConfig>);
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct HeadingHasContentConfig {
-    components: Option<Vec<String>>,
+    components: Option<Vec<CompactStr>>,
 }
 
 impl std::ops::Deref for HeadingHasContent {
@@ -49,11 +49,14 @@ declare_oxc_lint!(
     /// from accessing information on the page's structure.
     ///
     /// ### Example
-    /// ```jsx
-    /// // Bad
-    /// <h1 />
     ///
-    /// // Good
+    /// Examples of **incorrect** code for this rule:
+    /// ```jsx
+    /// <h1 />
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```jsx
     /// <h1>Foo</h1>
     /// ```
     HeadingHasContent,
@@ -71,10 +74,7 @@ impl Rule for HeadingHasContent {
                 .and_then(|v| v.get("components"))
                 .and_then(serde_json::Value::as_array)
                 .map(|v| {
-                    v.iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .map(ToString::to_string)
-                        .collect()
+                    v.iter().filter_map(serde_json::Value::as_str).map(CompactStr::from).collect()
                 }),
         }))
     }

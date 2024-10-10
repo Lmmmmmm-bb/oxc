@@ -1,12 +1,14 @@
-use oxc_ast::ast::{ImportDeclarationSpecifier, VariableDeclarator};
 use std::{cell::OnceCell, fmt};
 
 use oxc_ast::{
-    ast::{AssignmentTarget, BindingIdentifier, BindingPattern, IdentifierReference},
+    ast::{
+        AssignmentTarget, BindingIdentifier, BindingPattern, IdentifierReference,
+        ImportDeclarationSpecifier, VariableDeclarator,
+    },
     AstKind,
 };
 use oxc_semantic::{
-    AstNode, AstNodeId, AstNodes, Reference, ScopeId, ScopeTree, Semantic, SymbolFlags, SymbolId,
+    AstNode, AstNodes, NodeId, Reference, ScopeId, ScopeTree, Semantic, SymbolFlags, SymbolId,
     SymbolTable,
 };
 use oxc_span::{GetSpan, Span};
@@ -75,7 +77,7 @@ impl<'s, 'a> Symbol<'s, 'a> {
     }
 
     #[inline]
-    fn declaration_id(&self) -> AstNodeId {
+    fn declaration_id(&self) -> NodeId {
         self.symbols().get_declaration(self.id)
     }
 
@@ -103,16 +105,21 @@ impl<'s, 'a> Symbol<'s, 'a> {
         self.nodes().iter_parents(self.declaration_id())
     }
 
-    pub fn iter_relevant_parents(
+    #[inline]
+    pub fn iter_relevant_parents(&self) -> impl Iterator<Item = &AstNode<'a>> + Clone + '_ {
+        self.iter_relevant_parents_of(self.declaration_id())
+    }
+
+    pub fn iter_relevant_parents_of(
         &self,
-        node_id: AstNodeId,
+        node_id: NodeId,
     ) -> impl Iterator<Item = &AstNode<'a>> + Clone + '_ {
         self.nodes().iter_parents(node_id).skip(1).filter(|n| Self::is_relevant_kind(n.kind()))
     }
 
     pub fn iter_relevant_parent_and_grandparent_kinds(
         &self,
-        node_id: AstNodeId,
+        node_id: NodeId,
     ) -> impl Iterator<Item = (/* parent */ AstKind<'a>, /* grandparent */ AstKind<'a>)> + Clone + '_
     {
         let parents_iter = self
@@ -129,7 +136,15 @@ impl<'s, 'a> Symbol<'s, 'a> {
 
     #[inline]
     const fn is_relevant_kind(kind: AstKind<'a>) -> bool {
-        !matches!(kind, AstKind::ParenthesizedExpression(_))
+        !matches!(
+            kind,
+            AstKind::ParenthesizedExpression(_)
+                | AstKind::TSAsExpression(_)
+                | AstKind::TSSatisfiesExpression(_)
+                | AstKind::TSInstantiationExpression(_)
+                | AstKind::TSNonNullExpression(_)
+                | AstKind::TSTypeAssertion(_)
+        )
     }
 
     /// <https://github.com/oxc-project/oxc/issues/4739>
@@ -180,7 +195,16 @@ impl<'s, 'a> Symbol<'s, 'a> {
                 AstKind::ModuleDeclaration(module) => {
                     return module.is_export();
                 }
-                AstKind::VariableDeclaration(_) => {
+                AstKind::ExportDefaultDeclaration(_) => {
+                    return true;
+                }
+                AstKind::VariableDeclaration(_)
+                | AstKind::ExpressionArrayElement(_)
+                | AstKind::ArrayExpressionElement(_)
+                | AstKind::ArrayExpression(_)
+                | AstKind::ParenthesizedExpression(_)
+                | AstKind::TSAsExpression(_)
+                | AstKind::TSSatisfiesExpression(_) => {
                     continue;
                 }
                 _ => {

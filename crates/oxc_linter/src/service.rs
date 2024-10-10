@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    borrow::Cow,
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
@@ -15,23 +15,62 @@ use oxc_resolver::Resolver;
 use oxc_semantic::{ModuleRecord, SemanticBuilder};
 use oxc_span::{SourceType, VALID_EXTENSIONS};
 use rayon::{iter::ParallelBridge, prelude::ParallelIterator};
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
-    partial_loader::{JavaScriptSource, PartialLoader, LINT_PARTIAL_LOADER_EXT},
+    loader::{JavaScriptSource, PartialLoader, LINT_PARTIAL_LOADER_EXT},
     utils::read_to_string,
     Fixer, Linter, Message,
 };
 
 pub struct LintServiceOptions {
     /// Current working directory
-    pub cwd: Box<Path>,
+    cwd: Box<Path>,
 
     /// All paths to lint
-    pub paths: Vec<Box<Path>>,
+    paths: Vec<Box<Path>>,
 
     /// TypeScript `tsconfig.json` path for reading path alias and project references
-    pub tsconfig: Option<PathBuf>,
+    tsconfig: Option<PathBuf>,
+
+    cross_module: bool,
+}
+
+impl LintServiceOptions {
+    #[must_use]
+    pub fn new<T>(cwd: T, paths: Vec<Box<Path>>) -> Self
+    where
+        T: Into<Box<Path>>,
+    {
+        Self { cwd: cwd.into(), paths, tsconfig: None, cross_module: false }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn with_tsconfig<T>(mut self, tsconfig: T) -> Self
+    where
+        T: Into<PathBuf>,
+    {
+        let tsconfig = tsconfig.into();
+        // Should this be canonicalized?
+        let tsconfig = if tsconfig.is_relative() { self.cwd.join(tsconfig) } else { tsconfig };
+        debug_assert!(tsconfig.is_file());
+
+        self.tsconfig = Some(tsconfig);
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn with_cross_module(mut self, cross_module: bool) -> Self {
+        self.cross_module = cross_module;
+        self
+    }
+
+    #[inline]
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
+    }
 }
 
 #[derive(Clone)]
@@ -106,7 +145,7 @@ impl LintService {
 ///
 /// See the "problem section" in <https://medium.com/@polyglot_factotum/rust-concurrency-patterns-condvars-and-locks-e278f18db74f>
 /// and the solution is copied here to fix the issue.
-type CacheState = Mutex<HashMap<Box<Path>, Arc<(Mutex<CacheStateEntry>, Condvar)>>>;
+type CacheState = Mutex<FxHashMap<Box<Path>, Arc<(Mutex<CacheStateEntry>, Condvar)>>>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum CacheStateEntry {
@@ -135,7 +174,7 @@ pub struct Runtime {
 
 impl Runtime {
     fn new(linter: Linter, options: LintServiceOptions) -> Self {
-        let resolver = linter.options().plugins.import.then(|| {
+        let resolver = options.cross_module.then(|| {
             Self::get_resolver(options.tsconfig.or_else(|| Some(options.cwd.join("tsconfig.json"))))
         });
         Self {
@@ -188,6 +227,9 @@ impl Runtime {
         })
     }
 
+    // clippy: the source field is checked and assumed to be less than 4GB, and
+    // we assume that the fix offset will not exceed 2GB in either direction
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn process_path(&self, path: &Path, tx_error: &DiagnosticSender) {
         if self.init_cache_state(path) {
             return;
@@ -212,25 +254,49 @@ impl Runtime {
             }
         };
 
-        let sources = PartialLoader::parse(ext, &source_text);
-        let is_processed_by_partial_loader = sources.is_some();
-        let sources =
-            sources.unwrap_or_else(|| vec![JavaScriptSource::new(&source_text, source_type, 0)]);
+        let sources = PartialLoader::parse(ext, &source_text)
+            .unwrap_or_else(|| vec![JavaScriptSource::partial(&source_text, source_type, 0)]);
 
         if sources.is_empty() {
             self.ignore_path(path);
             return;
         }
 
-        for JavaScriptSource { source_text, source_type, .. } in sources {
-            let allocator = Allocator::default();
-            let mut messages =
-                self.process_source(path, &allocator, source_text, source_type, true, tx_error);
+        // If there are fixes, we will accumulate all of them and write to the file at the end.
+        // This means we do not write multiple times to the same file if there are multiple sources
+        // in the same file (for example, multiple scripts in an `.astro` file).
+        let mut new_source_text = Cow::from(&source_text);
+        // This is used to keep track of the cumulative offset from applying fixes.
+        // Otherwise, spans for fixes will be incorrect due to varying size of the
+        // source code after each fix.
+        let mut fix_offset: i32 = 0;
 
-            // TODO: Span is wrong, ban this feature for file process by `PartialLoader`.
-            if !is_processed_by_partial_loader && self.linter.options().fix.is_some() {
-                let fix_result = Fixer::new(source_text, messages).fix();
-                fs::write(path, fix_result.fixed_code.as_bytes()).unwrap();
+        let mut allocator = Allocator::default();
+        for (i, source) in sources.into_iter().enumerate() {
+            if i >= 1 {
+                allocator.reset();
+            }
+            let mut messages = self.process_source(
+                path,
+                &allocator,
+                source.source_text,
+                source.source_type,
+                true,
+                tx_error,
+            );
+
+            if self.linter.options().fix.is_some() {
+                let fix_result = Fixer::new(source.source_text, messages).fix();
+                if fix_result.fixed {
+                    // write to file, replacing only the changed part
+                    let start = source.start.saturating_add_signed(fix_offset) as usize;
+                    let end = start + source.source_text.len();
+                    new_source_text.to_mut().replace_range(start..end, &fix_result.fixed_code);
+                    let old_code_len = source.source_text.len() as u32;
+                    let new_code_len = fix_result.fixed_code.len() as u32;
+                    fix_offset += new_code_len as i32;
+                    fix_offset -= old_code_len as i32;
+                }
                 messages = fix_result.messages;
             }
 
@@ -238,9 +304,16 @@ impl Runtime {
                 self.ignore_path(path);
                 let errors = messages.into_iter().map(Into::into).collect();
                 let path = path.strip_prefix(&self.cwd).unwrap_or(path);
-                let diagnostics = DiagnosticService::wrap_diagnostics(path, source_text, errors);
+                let diagnostics =
+                    DiagnosticService::wrap_diagnostics(path, source.source_text, errors);
                 tx_error.send(Some(diagnostics)).unwrap();
             }
+        }
+
+        // If the new source text is owned, that means it was modified,
+        // so we write the new source text to the file.
+        if let Cow::Owned(new_source_text) = new_source_text {
+            fs::write(path, new_source_text).unwrap();
         }
     }
 
@@ -272,15 +345,15 @@ impl Runtime {
 
         // Build the module record to unblock other threads from waiting for too long.
         // The semantic model is not built at this stage.
-        let semantic_builder = SemanticBuilder::new(source_text, source_type)
+        let semantic_builder = SemanticBuilder::new(source_text)
             .with_cfg(true)
-            .with_build_jsdoc(true)
             .with_trivias(trivias)
+            .with_build_jsdoc(true)
             .with_check_syntax_error(check_syntax_errors)
             .build_module_record(path, program);
         let module_record = semantic_builder.module_record();
 
-        if self.linter.options().plugins.import {
+        if self.resolver.is_some() {
             self.module_map.insert(
                 path.to_path_buf().into_boxed_path(),
                 ModuleState::Resolved(Arc::clone(&module_record)),
@@ -362,7 +435,7 @@ impl Runtime {
     }
 
     fn init_cache_state(&self, path: &Path) -> bool {
-        if !self.linter.options().plugins.import {
+        if self.resolver.is_none() {
             return false;
         }
 
@@ -417,7 +490,7 @@ impl Runtime {
     }
 
     fn ignore_path(&self, path: &Path) {
-        if self.linter.options().plugins.import {
+        if self.resolver.is_some() {
             self.module_map.insert(path.to_path_buf().into_boxed_path(), ModuleState::Ignored);
             self.update_cache_state(path);
         }

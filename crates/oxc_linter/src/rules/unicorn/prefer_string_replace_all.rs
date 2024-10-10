@@ -4,14 +4,14 @@ use oxc_ast::{
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_span::{CompactStr, Span};
-
-use oxc_span::GetSpan;
+use oxc_regular_expression::ast::Term;
+use oxc_span::{CompactStr, GetSpan, Span};
 
 use crate::{ast_util::extract_regex_flags, context::LintContext, rule::Rule, AstNode};
 
-fn string_literal(span: Span, x1: &str) -> OxcDiagnostic {
-    OxcDiagnostic::warn(format!("This pattern can be replaced with `{x1}`.")).with_label(span)
+fn string_literal(span: Span, replacement: &str) -> OxcDiagnostic {
+    OxcDiagnostic::warn(format!("This pattern can be replaced with `{replacement}`."))
+        .with_label(span)
 }
 
 fn use_replace_all(span: Span) -> OxcDiagnostic {
@@ -126,17 +126,22 @@ fn get_pattern_replacement<'a>(
         return None;
     }
 
-    let pattern_text = reg_exp_literal.regex.pattern.source_text(ctx.source_text());
-    if !is_simple_string(pattern_text) {
+    let pattern_terms = reg_exp_literal
+        .regex
+        .pattern
+        .as_pattern()
+        .filter(|pattern| pattern.body.body.len() == 1)
+        .and_then(|pattern| pattern.body.body.first().map(|it| &it.body))?;
+    let is_simple_string = pattern_terms.iter().all(|term| matches!(term, Term::Character(_)));
+
+    if !is_simple_string {
         return None;
     }
 
-    Some(CompactStr::new(pattern_text))
-}
+    let pattern_text = reg_exp_literal.regex.pattern.source_text(ctx.source_text());
+    let pattern_text = pattern_text.as_ref();
 
-fn is_simple_string(str: &str) -> bool {
-    str.chars()
-        .all(|c| !matches!(c, '^' | '$' | '+' | '[' | '{' | '(' | '\\' | '.' | '?' | '*' | '|'))
+    Some(CompactStr::new(pattern_text))
 }
 
 #[test]
@@ -146,6 +151,7 @@ fn test() {
     let pass = vec![
         r"foo.replace(/a/, bar)",
         r"foo.replaceAll(/a/, bar)",
+        r"foo.replaceAll(/a|b/g, bar)",
         r#"foo.replace("string", bar)"#,
         r#"foo.replaceAll("string", bar)"#,
         r"foo.replace(/a/g)",

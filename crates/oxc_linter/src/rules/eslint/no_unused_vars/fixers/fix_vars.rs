@@ -2,7 +2,7 @@ use oxc_ast::{
     ast::{Expression, VariableDeclarator},
     AstKind,
 };
-use oxc_semantic::{AstNode, AstNodeId};
+use oxc_semantic::{AstNode, NodeId};
 use oxc_span::CompactStr;
 use regex::Regex;
 
@@ -28,7 +28,7 @@ impl NoUnusedVars {
         fixer: RuleFixer<'_, 'a>,
         symbol: &Symbol<'_, 'a>,
         decl: &VariableDeclarator<'a>,
-        decl_id: AstNodeId,
+        decl_id: NodeId,
     ) -> RuleFix<'a> {
         if decl.init.as_ref().is_some_and(|init| is_skipped_init(symbol, init)) {
             return fixer.noop();
@@ -44,7 +44,9 @@ impl NoUnusedVars {
             AstKind::VariableDeclaration(decl) => (decl.span, &decl.declarations),
             _ => {
                 #[cfg(debug_assertions)]
-                panic!("VariableDeclarator nodes should always be direct children of VariableDeclaration nodes");
+                panic!(
+                    "VariableDeclarator nodes should always be direct children of VariableDeclaration nodes"
+                );
                 #[cfg(not(debug_assertions))]
                 return fixer.noop();
             }

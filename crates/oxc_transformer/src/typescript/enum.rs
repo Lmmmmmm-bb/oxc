@@ -1,10 +1,8 @@
-use std::cell::Cell;
-
 use oxc_allocator::Vec;
-use oxc_ast::{ast::*, visit::walk_mut, VisitMut};
+use oxc_ast::{ast::*, visit::walk_mut, VisitMut, NONE};
 use oxc_span::{Atom, Span, SPAN};
 use oxc_syntax::{
-    node::AstNodeId,
+    node::NodeId,
     number::{NumberBase, ToJsInt32, ToJsString},
     operator::{AssignmentOperator, BinaryOperator, LogicalOperator, UnaryOperator},
     reference::ReferenceFlags,
@@ -13,16 +11,13 @@ use oxc_syntax::{
 use oxc_traverse::{Traverse, TraverseCtx};
 use rustc_hash::FxHashMap;
 
-use crate::context::Ctx;
-
 pub struct TypeScriptEnum<'a> {
-    ctx: Ctx<'a>,
     enums: FxHashMap<Atom<'a>, FxHashMap<Atom<'a>, ConstantValue>>,
 }
 
 impl<'a> TypeScriptEnum<'a> {
-    pub fn new(ctx: Ctx<'a>) -> Self {
-        Self { ctx, enums: FxHashMap::default() }
+    pub fn new() -> Self {
+        Self { enums: FxHashMap::default() }
     }
 }
 
@@ -85,16 +80,17 @@ impl<'a> TypeScriptEnum<'a> {
             enum_name.to_compact_str(),
             SymbolFlags::FunctionScopedVariable,
             func_scope_id,
-            AstNodeId::DUMMY,
+            NodeId::DUMMY,
         );
         ctx.scopes_mut().add_binding(func_scope_id, enum_name.to_compact_str(), param_symbol_id);
-        let ident = BindingIdentifier {
-            span: decl.id.span,
-            name: decl.id.name.clone(),
-            symbol_id: Cell::new(Some(param_symbol_id)),
-        };
+
+        let ident = BindingIdentifier::new_with_symbol_id(
+            decl.id.span,
+            decl.id.name.clone(),
+            param_symbol_id,
+        );
         let kind = ast.binding_pattern_kind_from_binding_identifier(ident.clone());
-        let id = ast.binding_pattern(kind, Option::<TSTypeAnnotation>::None, false);
+        let id = ast.binding_pattern(kind, NONE, false);
 
         // ((Foo) => {
         let params = ast.formal_parameter(SPAN, ast.vec(), id, None, false, false);
@@ -103,7 +99,7 @@ impl<'a> TypeScriptEnum<'a> {
             SPAN,
             FormalParameterKind::ArrowFormalParameters,
             params,
-            Option::<BindingRestElement>::None,
+            NONE,
         );
 
         // Foo[Foo["X"] = 0] = "X";
@@ -111,20 +107,21 @@ impl<'a> TypeScriptEnum<'a> {
 
         let statements = self.transform_ts_enum_members(&mut decl.members, &ident, ctx);
         let body = ast.alloc_function_body(decl.span, ast.vec(), statements);
-        let callee = Expression::FunctionExpression(ctx.alloc(Function {
-            r#type: FunctionType::FunctionExpression,
-            span: SPAN,
-            id: None,
-            generator: false,
-            r#async: false,
-            declare: false,
-            this_param: None,
+        let function = ctx.ast.function(
+            FunctionType::FunctionExpression,
+            SPAN,
+            None,
+            false,
+            false,
+            false,
+            None::<TSTypeParameterDeclaration>,
+            None::<TSThisParameter>,
             params,
-            body: Some(body),
-            type_parameters: None,
-            return_type: None,
-            scope_id: Cell::new(Some(func_scope_id)),
-        }));
+            None::<TSTypeAnnotation>,
+            Some(body),
+        );
+        function.scope_id.set(Some(func_scope_id));
+        let callee = ctx.ast.expression_from_function(function);
 
         let var_symbol_id = decl.id.symbol_id.get().unwrap();
         let arguments = if (is_export || is_not_top_scope) && !is_already_declared {
@@ -146,13 +143,7 @@ impl<'a> TypeScriptEnum<'a> {
             ast.vec1(Argument::from(expression))
         };
 
-        let call_expression = ast.expression_call(
-            SPAN,
-            callee,
-            Option::<TSTypeParameterInstantiation>::None,
-            arguments,
-            false,
-        );
+        let call_expression = ast.expression_call(SPAN, callee, NONE, arguments, false);
 
         if is_already_declared {
             let op = AssignmentOperator::Assign;
@@ -176,8 +167,7 @@ impl<'a> TypeScriptEnum<'a> {
             let binding_identifier = decl.id.clone();
             let binding_pattern_kind =
                 ast.binding_pattern_kind_from_binding_identifier(binding_identifier);
-            let binding =
-                ast.binding_pattern(binding_pattern_kind, Option::<TSTypeAnnotation>::None, false);
+            let binding = ast.binding_pattern(binding_pattern_kind, NONE, false);
             let decl = ast.variable_declarator(SPAN, kind, binding, Some(call_expression), false);
             ast.vec1(decl)
         };
@@ -202,10 +192,10 @@ impl<'a> TypeScriptEnum<'a> {
         ctx: &mut TraverseCtx<'a>,
     ) -> Vec<'a, Statement<'a>> {
         let create_identifier_reference = |ctx: &mut TraverseCtx<'a>| {
-            let ident = ctx.create_reference_id(
+            let ident = ctx.create_bound_reference_id(
                 param.span,
                 param.name.clone(),
-                param.symbol_id.get(),
+                param.symbol_id.get().unwrap(),
                 ReferenceFlags::Read,
             );
             ctx.ast.expression_from_identifier_reference(ident)
@@ -269,7 +259,7 @@ impl<'a> TypeScriptEnum<'a> {
                         match constant_value {
                             ConstantValue::Number(v) => {
                                 prev_constant_value = Some(ConstantValue::Number(v));
-                                self.get_initializer_expr(v)
+                                Self::get_initializer_expr(v, ctx)
                             }
                             ConstantValue::String(str) => {
                                 prev_constant_value = None;
@@ -287,7 +277,7 @@ impl<'a> TypeScriptEnum<'a> {
                         let constant_value = ConstantValue::Number(value);
                         prev_constant_value = Some(constant_value.clone());
                         previous_enum_members.insert(member_name.clone(), constant_value);
-                        self.get_initializer_expr(value)
+                        Self::get_initializer_expr(value, ctx)
                     }
                     ConstantValue::String(_) => unreachable!(),
                 }
@@ -299,10 +289,10 @@ impl<'a> TypeScriptEnum<'a> {
                 };
 
                 // 1 + Foo["x"]
-                let one = self.get_number_literal_expression(1.0);
+                let one = Self::get_number_literal_expression(1.0, ctx);
                 ast.expression_binary(SPAN, one, BinaryOperator::Addition, self_ref)
             } else {
-                self.get_number_literal_expression(0.0)
+                Self::get_number_literal_expression(0.0, ctx)
             };
 
             let is_str = init.is_string_literal();
@@ -344,23 +334,23 @@ impl<'a> TypeScriptEnum<'a> {
         statements
     }
 
-    fn get_number_literal_expression(&self, value: f64) -> Expression<'a> {
-        self.ctx.ast.expression_numeric_literal(SPAN, value, value.to_string(), NumberBase::Decimal)
+    fn get_number_literal_expression(value: f64, ctx: &TraverseCtx<'a>) -> Expression<'a> {
+        ctx.ast.expression_numeric_literal(SPAN, value, value.to_string(), NumberBase::Decimal)
     }
 
-    fn get_initializer_expr(&self, value: f64) -> Expression<'a> {
+    fn get_initializer_expr(value: f64, ctx: &TraverseCtx<'a>) -> Expression<'a> {
         let is_negative = value < 0.0;
 
         // Infinity
         let expr = if value.is_infinite() {
-            self.ctx.ast.expression_identifier_reference(SPAN, "Infinity")
+            ctx.ast.expression_identifier_reference(SPAN, "Infinity")
         } else {
             let value = if is_negative { -value } else { value };
-            self.get_number_literal_expression(value)
+            Self::get_number_literal_expression(value, ctx)
         };
 
         if is_negative {
-            self.ctx.ast.expression_unary(SPAN, UnaryOperator::UnaryNegation, expr)
+            ctx.ast.expression_unary(SPAN, UnaryOperator::UnaryNegation, expr)
         } else {
             expr
         }

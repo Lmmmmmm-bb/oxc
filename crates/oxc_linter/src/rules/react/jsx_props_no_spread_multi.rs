@@ -1,14 +1,12 @@
-use rustc_hash::FxHashMap;
-
+use itertools::Itertools;
 use oxc_ast::{ast::JSXAttributeItem, AstKind};
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_span::{Atom, Span};
-
-use itertools::Itertools;
+use oxc_span::{Atom, GetSpan, Span};
+use rustc_hash::FxHashMap;
 
 use crate::{
-    context::LintContext,
+    context::{ContextHost, LintContext},
     fixer::{Fix, RuleFix},
     rule::Rule,
     utils::is_same_member_expression,
@@ -19,14 +17,17 @@ fn jsx_props_no_spread_multiple_identifiers_diagnostic(
     spans: Vec<Span>,
     prop_name: &str,
 ) -> OxcDiagnostic {
-    OxcDiagnostic::warn("Disallow JSX prop spreading the same identifier multiple times.")
-        .with_help(format!("Prop '{prop_name}' is spread multiple times."))
+    OxcDiagnostic::warn(format!("Prop '{prop_name}' is spread multiple times."))
+        .with_help("Remove all but one spread.")
         .with_labels(spans)
 }
 
-fn jsx_props_no_spread_multiple_member_expressions_diagnostic(spans: Vec<Span>) -> OxcDiagnostic {
-    OxcDiagnostic::warn("Disallow JSX prop spreading the same member expression multiple times.")
-        .with_help("Remove the first spread.")
+fn jsx_props_no_spread_multiple_member_expressions_diagnostic(
+    spans: Vec<Span>,
+    member_name: &str,
+) -> OxcDiagnostic {
+    OxcDiagnostic::warn(format!("'{member_name}' is spread multiple times."))
+        .with_help("Remove all but one spread.")
         .with_labels(spans)
 }
 
@@ -42,11 +43,14 @@ declare_oxc_lint!(
     /// Even when that is not the case this will lead to unnecessary computations being performed.
     ///
     /// ### Example
-    /// ```jsx
-    /// // Bad
-    /// <App {...props} myAttr="1" {...props} />
     ///
-    /// // Good
+    /// Examples of **incorrect** code for this rule:
+    /// ```jsx
+    /// <App {...props} myAttr="1" {...props} />
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```jsx
     /// <App myAttr="1" {...props} />
     /// <App {...props} myAttr="1" />
     /// ```
@@ -66,7 +70,7 @@ impl Rule for JsxPropsNoSpreadMulti {
             let mut duplicate_spreads: FxHashMap<&Atom, Vec<Span>> = FxHashMap::default();
 
             for spread_attr in spread_attrs {
-                let argument_without_parenthesized = spread_attr.argument.without_parenthesized();
+                let argument_without_parenthesized = spread_attr.argument.without_parentheses();
 
                 if let Some(identifier_name) =
                     argument_without_parenthesized.get_identifier_reference().map(|arg| &arg.name)
@@ -108,17 +112,23 @@ impl Rule for JsxPropsNoSpreadMulti {
             member_expressions.iter().tuple_combinations().for_each(
                 |((left, left_span), (right, right_span))| {
                     if is_same_member_expression(left, right, ctx) {
+                        // 'foo.bar'
+                        let member_prop_name = ctx.source_range(left.span());
                         ctx.diagnostic_with_fix(
-                            jsx_props_no_spread_multiple_member_expressions_diagnostic(vec![
-                                *left_span,
-                                *right_span,
-                            ]),
+                            jsx_props_no_spread_multiple_member_expressions_diagnostic(
+                                vec![*left_span, *right_span],
+                                member_prop_name,
+                            ),
                             |fixer| fixer.delete_range(*left_span),
                         );
                     }
                 },
             );
         }
+    }
+
+    fn should_run(&self, ctx: &ContextHost) -> bool {
+        ctx.source_type().is_jsx()
     }
 }
 

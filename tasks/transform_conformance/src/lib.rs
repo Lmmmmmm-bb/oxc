@@ -42,16 +42,20 @@ fn packages_root() -> PathBuf {
     babel_root().join("packages")
 }
 
+fn conformance_root() -> PathBuf {
+    project_root().join("tasks").join("transform_conformance")
+}
+
 fn snap_root() -> PathBuf {
-    project_root().join("tasks/transform_conformance")
+    conformance_root().join("snapshots")
 }
 
 fn oxc_test_root() -> PathBuf {
-    snap_root().join("tests")
+    conformance_root().join("tests")
 }
 
 fn fixture_root() -> PathBuf {
-    snap_root().join("fixtures")
+    conformance_root().join("fixtures")
 }
 
 const CONFORMANCE_SNAPSHOT: &str = "babel.snap.md";
@@ -101,7 +105,7 @@ impl TestRunner {
         root: &Path,
         filter: Option<&String>,
     ) -> (IndexMap<String, Vec<TestCaseKind>>, IndexMap<String, Vec<TestCaseKind>>) {
-        let cwd = babel_root();
+        let cwd = root.parent().unwrap_or(root);
         // use `IndexMap` to keep the order of the test cases the same in insert order.
         let mut transform_files = IndexMap::<String, Vec<TestCaseKind>>::new();
         let mut exec_files = IndexMap::<String, Vec<TestCaseKind>>::new();
@@ -119,8 +123,7 @@ impl TestRunner {
                                 return None;
                             }
                         }
-                        TestCaseKind::new(&cwd, path)
-                            .filter(|test_case| !test_case.skip_test_case())
+                        TestCaseKind::new(cwd, path).filter(|test_case| !test_case.skip_test_case())
                     })
                     .partition(|p| matches!(p, TestCaseKind::Transform(_)));
 
@@ -175,12 +178,12 @@ impl TestRunner {
                     let errors = test_case.errors();
                     if !errors.is_empty() {
                         snapshot.push('\n');
-                        for error in test_case.errors() {
+                        for error in errors {
                             snapshot.push_str(&error.message);
+                            snapshot.push('\n');
                         }
                         snapshot.push('\n');
                     }
-                    snapshot.push('\n');
                 }
                 snapshot.push('\n');
             }

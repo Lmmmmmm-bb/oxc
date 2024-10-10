@@ -4,6 +4,196 @@ All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
 
+## [0.31.0] - 2024-10-08
+
+- 01b878e parser: [**BREAKING**] Use `BindingIdentifier` for `namespace` declaration names (#6003) (DonIsaac)
+
+- 95ca01c cfg: [**BREAKING**] Make BasicBlock::unreachable private (#6321) (DonIsaac)
+
+### Features
+
+- 14275b1 cfg: Color-code edges in CFG dot diagrams (#6314) (DonIsaac)
+- 9e62396 syntax_operations: Add crate `oxc_syntax_operations` (#6202) (Boshen)
+
+### Bug Fixes
+
+- 6159560 parser: String `ImportSpecifier`s for type imports (#6352) (DonIsaac)
+
+### Refactor
+
+- 40932f7 cfg: Use IndexVec for storing basic blocks (#6323) (DonIsaac)
+- bdd9e92 semantic: Rename vars from `ast_node_id` to `node_id` (#6304) (overlookmotel)
+- d110700 semantic: Dereference IDs as quickly as possible (#6303) (overlookmotel)
+
+### Testing
+
+- d4f2ee9 transformer: Tidy up transform checker (#6287) (overlookmotel)
+- 0f5afd7 transformer: Transform checker output symbol name for mismatches (#6286) (overlookmotel)
+
+## [0.30.4] - 2024-09-28
+
+### Refactor
+
+- 2090fce semantic: Fix lint warning in nightly (#6110) (overlookmotel)
+
+## [0.30.3] - 2024-09-27
+
+### Bug Fixes
+
+- 933a743 semantic: Add interfaces and functions to `SymbolFlags::ClassExcludes`  (#6057) (DonIsaac)
+
+## [0.30.2] - 2024-09-27
+
+### Features
+
+- f866781 semantic: Check for type annotations on left side of `for..in` and `for..of` iterators (#6043) (DonIsaac)
+- 8b2e9aa semantic: Check for JSDoc types in TS type annotations (#6042) (DonIsaac)
+
+### Bug Fixes
+
+- b1af73d semantic: Do not create a `global` symbol for `declare global {}` (#6040) (DonIsaac)
+- c8682e9 semantic,codegen,transformer: Handle definite `!` operator in variable declarator (#6019) (Boshen)
+
+### Documentation
+
+- efabfc8 semantic: Improve doc comments on `Reference` methods (#6076) (overlookmotel)
+
+### Testing
+
+- 93575cd semantic: Add comprehensive regression test suite (#5976) (DonIsaac)
+
+## [0.30.1] - 2024-09-24
+
+### Performance
+
+- 2b17003 linter, prettier, diagnostics: Use `FxHashMap` instead of `std::collections::HashMap` (#5993) (camchenry)
+
+### Documentation
+
+- 1abfe8f semantic: Document `SymbolTable` (#5998) (DonIsaac)
+- f5eee72 semantic: Correct docs for `Reference` (#5992) (overlookmotel)
+
+## [0.30.0] - 2024-09-23
+
+- c96b712 syntax: [**BREAKING**] Remove `SymbolFlags::ArrowFunction` (#5857) (overlookmotel)
+
+### Features
+
+- a111bb6 oxc_wasm: Add `verbse` option to `debug_dot`  (#5879) (IWANABETHATGUY)
+- 74d8714 semantic: Add help message for invalid `let x?: number` (#5969) (DonIsaac)
+- 3230ae5 semantic: Add `SemanticBuilder::with_excess_capacity` (#5762) (overlookmotel)
+- a07f03a transformer: Sync `Program::source_type` after transform (#5887) (Boshen)
+
+### Bug Fixes
+
+- f1551d6 semantic: `?` on variable declaration type annotations is a syntax error (#5956) (DonIsaac)
+- a23879c semantic: Analyze `ReferenceFlags` incorrectly when there are nested `AssignmentTarget` (#5847) (Dunqing)
+
+### Performance
+
+- c3e0fb6 semantic: Simplify resetting ReferenceFlags in `AssignmentExpression` (#5846) (Dunqing)
+
+### Documentation
+
+- 1ccf290 semantic: Document `AstNode` and `AstNodes` (#5872) (DonIsaac)
+
+### Refactor
+
+- 6dd6f7c ast: Change `Comment` struct (#5783) (Boshen)
+- d910304 semantic: Rename lifetime on `impl IntoIterator for &AstNodes` (#5881) (overlookmotel)
+- f360e2c semantic: Remove redundunt is_leading check for JSDoc (#5877) (leaysgur)
+- 9115dd9 semantic: Use `Comment::attached_to` for jsdoc attachment (#5876) (Boshen)
+- db4f16a semantic: Call `with_trivias` before `build_with_jsdoc` (#5875) (Boshen)
+- 3d13c6d semantic: Impl `IntoIterator` for `&AstNodes` (#5873) (DonIsaac)
+- 47d9ad8 semantic: Remove unused vars warning in release mode (#5803) (overlookmotel)
+
+## [0.29.0] - 2024-09-13
+
+### Features
+
+- 805fbac oxc_cfg: Better control flow graph dot dot repr (#5731) (IWANABETHATGUY)
+- f3baa49 semantic: Add `SemanticBuilder::with_stats` (#5757) (overlookmotel)
+- 7fa0cb3 semantic: Expose `Stats` (#5755) (overlookmotel)
+
+### Refactor
+
+- 4bdc202 rust: Remove some #[allow(unused)] (#5716) (Boshen)
+- a35fb14 semantic: `Stats::assert_accurate` take `self` (#5758) (overlookmotel)
+- 4b896f1 semantic: Make `Stats` `Copy` (#5756) (overlookmotel)
+- b4b460f semantic: `Stats` store counts as `u32` (#5754) (overlookmotel)
+- 667170c semantic: Rename `Counts` to `Stats` (#5753) (overlookmotel)
+- cc0408b semantic: S/AstNodeId/NodeId (#5740) (Boshen)
+- 7dfcdfc semantic: Remove `more-asserts` dependency (#5739) (overlookmotel)
+- 6436524 semantic: Fix dead code warning in release mode (#5728) (overlookmotel)
+- e02621d semantic: Re-order use statements (#5712) (overlookmotel)
+- ac6203c semantic: Move `Counts` code into counter module (#5710) (overlookmotel)
+- 339fcfc semantic: Rename `Counts` in transform checker (#5709) (overlookmotel)
+- d8ec781 semantic: Remove `record_ast_node` call for `Program` (#5701) (overlookmotel)
+
+### Styling
+
+- 1857ff0 semantic: Rename vars for node IDs (#5699) (overlookmotel)
+
+## [0.28.0] - 2024-09-11
+
+- 1fa3e56 semantic: [**BREAKING**] Rename `SymbolTable::iter` to `symbol_ids` (#5621) (overlookmotel)
+
+- 96a1552 semantic: [**BREAKING**] Remove `SymbolTable::iter_rev` (#5620) (overlookmotel)
+
+- 4a8aec1 span: [**BREAKING**] Change `SourceType::js` to `SourceType::cjs` and `SourceType::mjs` (#5606) (Boshen)
+
+- 603817b oxc: [**BREAKING**] Add `SourceType::Unambiguous`; parse `.js` as unambiguous (#5557) (Boshen)
+
+- b060525 semantic: [**BREAKING**] Remove `source_type` argument from `SemanticBuilder::new` (#5553) (Boshen)
+
+### Features
+
+- 86256ea minifier: Constant fold `typeof` (#5666) (Boshen)
+- 642295c semantic: Add `SymbolTable::delete_resolved_reference` method (#5558) (overlookmotel)
+
+### Bug Fixes
+
+- f9e3a41 semantic: Bind `SymbolId` to function name in `if (foo) function id() {}` (#5673) (Boshen)
+- 36d864a transformer/react: Don't transform if the variable does not have a value reference (#5528) (Dunqing)
+
+### Refactor
+
+- 0ac420d linter: Use meaningful names for diagnostic parameters (#5564) (Don Isaac)
+- 731ffaa semantic: Compare nodes by pointer equality (#5686) (overlookmotel)
+- 067f9b5 semantic: Introduce `IsGlobalReference` trait (#5672) (Boshen)
+- d22a9b7 semantic: `SymbolTable::is_empty` use `is_empty` (#5622) (overlookmotel)
+
+### Testing
+- dc92489 Add trailing line breaks to conformance fixtures (#5541) (overlookmotel)
+
+## [0.27.0] - 2024-09-06
+
+- bd820f9 semantic: [**BREAKING**] Remove `SymbolTable::get_symbol_id_from_name` and `SymbolTable::get_scope_id_from_name` (#5480) (overlookmotel)
+
+### Features
+
+- 0f50b1e semantic: Check for initializers in ambient `VariableDeclaration`s (#5463) (DonIsaac)
+- 62f7fff semantic: Check for non-declared, non-abstract object accessors without bodies (#5461) (DonIsaac)
+- 5407143 semantic: Check for non-declared, non-abstract class accessors without bodies (#5460) (DonIsaac)
+- 052e94c semantic: Check for parameter properties in constructor overloads (#5459) (DonIsaac)
+
+### Bug Fixes
+
+- 7a797ac semantic: Incorrect reference when `MemberExpression` used in `TSPropertySignature` (#5525) (Dunqing)
+- d8b9909 semantic: `IdentifierReference` within `TSPropertySignature` cannot reference type-only import binding (#5441) (Dunqing)
+
+### Refactor
+
+- e4ed41d semantic: Change the reference flag to `ReferenceFlags::Type` if it is used within a `TSTypeQuery` (#5444) (Dunqing)
+
+### Styling
+
+- 2a43fa4 linter: Introduce the writing style from PR #5491 and reduce the if nesting (#5512) (dalaoshu)
+
+### Testing
+
+- 340b535 linter/no-unused-vars: Arrow functions in tagged templates (#5510) (Don Isaac)
+
 ## [0.26.0] - 2024-09-03
 
 - 01cc2ce semantic: [**BREAKING**] Add `ScopeTree:get_child_ids` API behind a runtime flag (#5403) (Boshen)

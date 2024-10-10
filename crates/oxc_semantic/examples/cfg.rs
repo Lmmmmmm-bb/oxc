@@ -1,5 +1,5 @@
 #![allow(clippy::print_stdout)]
-use std::{collections::HashMap, env, path::Path, sync::Arc};
+use std::{env, path::Path, sync::Arc};
 
 use itertools::Itertools;
 use oxc_allocator::Allocator;
@@ -13,6 +13,7 @@ use oxc_cfg::{
 use oxc_parser::Parser;
 use oxc_semantic::{dot::DebugDot, SemanticBuilder};
 use oxc_span::SourceType;
+use rustc_hash::FxHashMap;
 
 // Instruction:
 // 1. create a `test.js`,
@@ -54,7 +55,7 @@ fn main() -> std::io::Result<()> {
     std::fs::write(ast_file_path, format!("{:#?}", &program))?;
     println!("Wrote AST to: {}", &ast_file_name);
 
-    let semantic = SemanticBuilder::new(&source_text, source_type)
+    let semantic = SemanticBuilder::new(&source_text)
         .with_check_syntax_error(true)
         .with_trivias(parser_ret.trivias)
         .with_cfg(true)
@@ -76,8 +77,8 @@ fn main() -> std::io::Result<()> {
         .cfg()
         .expect("we set semantic to build the control flow (`with_cfg`) for us so it should always be `Some`");
 
-    let mut ast_nodes_by_block = HashMap::<_, Vec<_>>::new();
-    for node in semantic.semantic.nodes().iter() {
+    let mut ast_nodes_by_block = FxHashMap::<_, Vec<_>>::default();
+    for node in semantic.semantic.nodes() {
         let block = node.cfg_id();
         let block_ix = cfg.graph.node_weight(block).unwrap();
         ast_nodes_by_block.entry(*block_ix).or_default().push(node);
@@ -85,10 +86,9 @@ fn main() -> std::io::Result<()> {
 
     let basic_blocks_printed = cfg
         .basic_blocks
-        .iter()
-        .map(DisplayDot::display_dot)
-        .enumerate()
+        .iter_enumerated()
         .map(|(i, it)| {
+            let it = it.display_dot();
             format!(
                 "bb{i}: {{\n{}\n---\n{}\n}}",
                 it.lines().map(|x| format!("\t{}", x.trim())).join("\n"),
@@ -114,7 +114,7 @@ fn main() -> std::io::Result<()> {
                 let weight = edge.weight();
                 let label = format!("label = \"{weight:?}\"");
                 if matches!(weight, EdgeType::Unreachable)
-                    || cfg.basic_block(edge.source()).unreachable
+                    || cfg.basic_block(edge.source()).is_unreachable()
                 {
                     format!("{label}, style = \"dotted\" ")
                 } else {

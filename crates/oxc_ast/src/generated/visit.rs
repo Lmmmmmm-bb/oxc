@@ -1381,7 +1381,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_directives<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, Directive<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_directive(el);
         }
     }
@@ -1403,7 +1403,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_statements<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, Statement<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_statement(el);
         }
     }
@@ -1591,7 +1591,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TemplateElement<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_template_element(el);
         }
     }
@@ -1603,7 +1603,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_expressions<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, Expression<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_expression(el);
         }
     }
@@ -1654,7 +1654,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, ArrayExpressionElement<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_array_expression_element(el);
         }
     }
@@ -1743,7 +1743,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TSTypeParameter<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_type_parameter(el);
         }
     }
@@ -1913,12 +1913,12 @@ pub mod walk {
     pub fn walk_ts_conditional_type<'a, V: Visit<'a>>(visitor: &mut V, it: &TSConditionalType<'a>) {
         let kind = AstKind::TSConditionalType(visitor.alloc(it));
         visitor.enter_node(kind);
-        visitor.enter_scope(ScopeFlags::empty(), &it.scope_id);
         visitor.visit_ts_type(&it.check_type);
+        visitor.enter_scope(ScopeFlags::empty(), &it.scope_id);
         visitor.visit_ts_type(&it.extends_type);
         visitor.visit_ts_type(&it.true_type);
-        visitor.visit_ts_type(&it.false_type);
         visitor.leave_scope();
+        visitor.visit_ts_type(&it.false_type);
         visitor.leave_node(kind);
     }
 
@@ -1948,7 +1948,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, FormalParameter<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_formal_parameter(el);
         }
     }
@@ -1964,7 +1964,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_decorators<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, Decorator<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_decorator(el);
         }
     }
@@ -2015,7 +2015,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, BindingProperty<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_binding_property(el);
         }
     }
@@ -2104,7 +2104,6 @@ pub mod walk {
     pub fn walk_ts_this_parameter<'a, V: Visit<'a>>(visitor: &mut V, it: &TSThisParameter<'a>) {
         let kind = AstKind::TSThisParameter(visitor.alloc(it));
         visitor.enter_node(kind);
-        visitor.visit_identifier_name(&it.this);
         if let Some(type_annotation) = &it.type_annotation {
             visitor.visit_ts_type_annotation(type_annotation);
         }
@@ -2163,7 +2162,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TSImportAttribute<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_import_attribute(el);
         }
     }
@@ -2199,7 +2198,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_ts_types<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, TSType<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_type(el);
         }
     }
@@ -2343,7 +2342,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TSTupleElement<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_tuple_element(el);
         }
     }
@@ -2358,7 +2357,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_ts_signatures<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, TSSignature<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_signature(el);
         }
     }
@@ -2390,7 +2389,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TSIndexSignatureName<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_index_signature_name(el);
         }
     }
@@ -2832,7 +2831,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, AssignmentTargetProperty<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_assignment_target_property(el);
         }
     }
@@ -2905,7 +2904,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_arguments<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, Argument<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_argument(el);
         }
     }
@@ -2976,7 +2975,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TSClassImplements<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_class_implements(el);
         }
     }
@@ -3002,7 +3001,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_class_elements<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, ClassElement<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_class_element(el);
         }
     }
@@ -3166,7 +3165,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, ObjectPropertyKind<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_object_property_kind(el);
         }
     }
@@ -3301,6 +3300,7 @@ pub mod walk {
             JSXElementName::IdentifierReference(it) => visitor.visit_identifier_reference(it),
             JSXElementName::NamespacedName(it) => visitor.visit_jsx_namespaced_name(it),
             JSXElementName::MemberExpression(it) => visitor.visit_jsx_member_expression(it),
+            JSXElementName::ThisExpression(it) => visitor.visit_this_expression(it),
         }
         visitor.leave_node(kind);
     }
@@ -3347,6 +3347,7 @@ pub mod walk {
             JSXMemberExpressionObject::MemberExpression(it) => {
                 visitor.visit_jsx_member_expression(it)
             }
+            JSXMemberExpressionObject::ThisExpression(it) => visitor.visit_this_expression(it),
         }
         visitor.leave_node(kind);
     }
@@ -3356,7 +3357,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, JSXAttributeItem<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_jsx_attribute_item(el);
         }
     }
@@ -3435,7 +3436,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_jsx_children<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, JSXChild<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_jsx_child(el);
         }
     }
@@ -3539,7 +3540,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, VariableDeclarator<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_variable_declarator(el);
         }
     }
@@ -3644,7 +3645,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_switch_cases<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, SwitchCase<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_switch_case(el);
         }
     }
@@ -3791,7 +3792,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, TSInterfaceHeritage<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_interface_heritage(el);
         }
     }
@@ -3829,7 +3830,7 @@ pub mod walk {
 
     #[inline]
     pub fn walk_ts_enum_members<'a, V: Visit<'a>>(visitor: &mut V, it: &Vec<'a, TSEnumMember<'a>>) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_ts_enum_member(el);
         }
     }
@@ -3887,7 +3888,7 @@ pub mod walk {
         it: &TSModuleDeclarationName<'a>,
     ) {
         match it {
-            TSModuleDeclarationName::Identifier(it) => visitor.visit_identifier_name(it),
+            TSModuleDeclarationName::Identifier(it) => visitor.visit_binding_identifier(it),
             TSModuleDeclarationName::StringLiteral(it) => visitor.visit_string_literal(it),
         }
     }
@@ -3991,7 +3992,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, ImportDeclarationSpecifier<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_import_declaration_specifier(el);
         }
     }
@@ -4064,7 +4065,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, ImportAttribute<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_import_attribute(el);
         }
     }
@@ -4161,7 +4162,7 @@ pub mod walk {
         visitor: &mut V,
         it: &Vec<'a, ExportSpecifier<'a>>,
     ) {
-        for el in it.iter() {
+        for el in it {
             visitor.visit_export_specifier(el);
         }
     }

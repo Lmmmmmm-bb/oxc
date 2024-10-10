@@ -2,6 +2,10 @@
 source: crates/oxc_semantic/tests/main.rs
 input_file: crates/oxc_semantic/tests/fixtures/oxc/jsx/element-name.jsx
 ---
+================================================================================
+SCOPES
+================================================================================
+
 [
   {
     "children": [
@@ -18,7 +22,7 @@ input_file: crates/oxc_semantic/tests/fixtures/oxc/jsx/element-name.jsx
     "node": "Program",
     "symbols": [
       {
-        "flags": "SymbolFlags(BlockScopedVariable | ArrowFunction)",
+        "flags": "SymbolFlags(BlockScopedVariable)",
         "id": 0,
         "name": "Component",
         "node": "VariableDeclarator(Component)",
@@ -40,3 +44,9 @@ input_file: crates/oxc_semantic/tests/fixtures/oxc/jsx/element-name.jsx
     ]
   }
 ]
+
+================================================================================
+CONFORMANCE
+================================================================================
+
+All tests passed.

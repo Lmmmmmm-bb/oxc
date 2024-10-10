@@ -1,22 +1,22 @@
 use oxc_allocator::Box;
-use oxc_ast::ast::*;
+use oxc_ast::{ast::*, NONE};
 use oxc_span::SPAN;
 use oxc_syntax::reference::ReferenceFlags;
 use oxc_traverse::{Traverse, TraverseCtx};
 
-use crate::context::Ctx;
+use crate::TransformCtx;
 
-pub struct TypeScriptModule<'a> {
-    ctx: Ctx<'a>,
+pub struct TypeScriptModule<'a, 'ctx> {
+    ctx: &'ctx TransformCtx<'a>,
 }
 
-impl<'a> TypeScriptModule<'a> {
-    pub fn new(ctx: Ctx<'a>) -> Self {
+impl<'a, 'ctx> TypeScriptModule<'a, 'ctx> {
+    pub fn new(ctx: &'ctx TransformCtx<'a>) -> Self {
         Self { ctx }
     }
 }
 
-impl<'a> Traverse<'a> for TypeScriptModule<'a> {
+impl<'a, 'ctx> Traverse<'a> for TypeScriptModule<'a, 'ctx> {
     /// ```TypeScript
     /// import b = babel;
     /// import AliasModule = LongNameModule;
@@ -48,7 +48,7 @@ impl<'a> Traverse<'a> for TypeScriptModule<'a> {
     }
 }
 
-impl<'a> TypeScriptModule<'a> {
+impl<'a, 'ctx> TypeScriptModule<'a, 'ctx> {
     fn transform_ts_import_equals(
         &self,
         decl: &mut Box<'a, TSImportEqualsDeclaration<'a>>,
@@ -58,11 +58,7 @@ impl<'a> TypeScriptModule<'a> {
         let decls = {
             let binding_pattern_kind =
                 ctx.ast.binding_pattern_kind_binding_identifier(SPAN, &decl.id.name);
-            let binding = ctx.ast.binding_pattern(
-                binding_pattern_kind,
-                Option::<TSTypeAnnotation>::None,
-                false,
-            );
+            let binding = ctx.ast.binding_pattern(binding_pattern_kind, NONE, false);
             let decl_span = decl.span;
 
             let init = match &mut decl.module_reference {
@@ -80,13 +76,7 @@ impl<'a> TypeScriptModule<'a> {
                     let arguments = ctx.ast.vec1(Argument::from(
                         ctx.ast.expression_from_string_literal(reference.expression.clone()),
                     ));
-                    ctx.ast.expression_call(
-                        SPAN,
-                        callee,
-                        Option::<TSTypeParameterInstantiation>::None,
-                        arguments,
-                        false,
-                    )
+                    ctx.ast.expression_call(SPAN, callee, NONE, arguments, false)
                 }
             };
             ctx.ast.vec1(ctx.ast.variable_declarator(SPAN, kind, binding, Some(init), false))

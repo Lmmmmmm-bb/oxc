@@ -7,10 +7,14 @@ use oxc_ast::{
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_semantic::AstNodeId;
+use oxc_semantic::NodeId;
 use oxc_span::Span;
 
-use crate::{context::LintContext, rule::Rule, AstNode};
+use crate::{
+    context::{ContextHost, LintContext},
+    rule::Rule,
+    AstNode,
+};
 
 fn needs_more_children(span: Span) -> OxcDiagnostic {
     OxcDiagnostic::warn("Fragments should contain more than one child.").with_label(span)
@@ -36,12 +40,15 @@ declare_oxc_lint!(
     /// Fragments are a useful tool when you need to group multiple children without adding a node to the DOM tree. However, sometimes you might end up with a fragment with a single child. When this child is an element, string, or expression, it's not necessary to use a fragment.
     ///
     /// ### Example
+    ///
+    /// Examples of **incorrect** code for this rule:
     /// ```jsx
-    /// // Bad
     /// <>foo</>
     /// <div><>foo</></div>
+    /// ```
     ///
-    /// // Good
+    /// Examples of **correct** code for this rule:
+    /// ```jsx
     /// <>foo <div></div></>
     /// <div>foo</div>
     /// ```
@@ -75,7 +82,7 @@ impl Rule for JsxNoUselessFragment {
         }
     }
 
-    fn should_run(&self, ctx: &LintContext) -> bool {
+    fn should_run(&self, ctx: &ContextHost) -> bool {
         ctx.source_type().is_jsx()
     }
 }
@@ -172,7 +179,9 @@ fn is_jsx_fragment(elem: &JSXOpeningElement) -> bool {
                 false
             }
         }
-        JSXElementName::NamespacedName(_) | JSXElementName::Identifier(_) => false,
+        JSXElementName::NamespacedName(_)
+        | JSXElementName::Identifier(_)
+        | JSXElementName::ThisExpression(_) => false,
     }
 }
 
@@ -195,7 +204,7 @@ fn has_less_than_two_children(children: &oxc_allocator::Vec<'_, JSXChild<'_>>) -
 }
 
 fn is_fragment_with_only_text_and_is_not_child<'a>(
-    id: AstNodeId,
+    id: NodeId,
     node: &oxc_allocator::Vec<'a, JSXChild<'a>>,
     ctx: &LintContext,
 ) -> bool {

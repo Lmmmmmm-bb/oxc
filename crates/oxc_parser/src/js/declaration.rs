@@ -1,5 +1,5 @@
 use oxc_allocator::Box;
-use oxc_ast::ast::*;
+use oxc_ast::{ast::*, NONE};
 use oxc_diagnostics::Result;
 use oxc_span::{GetSpan, Span};
 
@@ -113,20 +113,23 @@ impl<'a> ParserImpl<'a> {
             }
             (self.ast.binding_pattern(binding_kind, type_annotation, optional), definite)
         } else {
-            (self.ast.binding_pattern(binding_kind, Option::<TSTypeAnnotation>::None, false), false)
+            (self.ast.binding_pattern(binding_kind, NONE, false), false)
         };
 
         let init =
             self.eat(Kind::Eq).then(|| self.parse_assignment_expression_or_higher()).transpose()?;
 
-        if init.is_none() && decl_ctx.parent == VariableDeclarationParent::Statement {
+        if init.is_none()
+            && !self.ctx.has_ambient()
+            && decl_ctx.parent == VariableDeclarationParent::Statement
+        {
             // LexicalBinding[In, Yield, Await] :
             //   BindingIdentifier[?Yield, ?Await] Initializer[?In, ?Yield, ?Await] opt
             //   BindingPattern[?Yield, ?Await] Initializer[?In, ?Yield, ?Await]
             // the grammar forbids `let []`, `let {}`
             if !matches!(id.kind, BindingPatternKind::BindingIdentifier(_)) {
                 self.error(diagnostics::invalid_destrucuring_declaration(id.span()));
-            } else if kind == VariableDeclarationKind::Const && !self.ctx.has_ambient() {
+            } else if kind == VariableDeclarationKind::Const {
                 // It is a Syntax Error if Initializer is not present and IsConstantDeclaration of the LexicalDeclaration containing this LexicalBinding is true.
                 self.error(diagnostics::missinginitializer_in_const(id.span()));
             }

@@ -33,21 +33,23 @@ declare_oxc_lint!(
     /// A negated expression on the left of an (in)equality check is likely a mistake from trying to negate the whole condition.
     ///
     /// ### Example
-    /// ```javascript
-    /// // Bad
     ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```javascript
     /// if (!foo === bar) {}
     ///
     /// if (!foo !== bar) {}
+    /// ```
     ///
-    /// // Good
-    ///
+    /// Examples of **correct** code for this rule:
+    /// ```javascript
     /// if (foo !== bar) {}
     ///
     /// if (!(foo === bar)) {}
     /// ```
     NoNegationInEqualityCheck,
     pedantic,
+    pending
 );
 
 impl Rule for NoNegationInEqualityCheck {

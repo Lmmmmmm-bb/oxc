@@ -231,7 +231,10 @@ fn test_export_in_invalid_scope() {
     .expect_errors(true);
     test.has_some_symbol("x").contains_flags(SymbolFlags::Export).test();
     let SemanticBuilderReturn { semantic, errors } = test.build_with_errors();
-    assert!(!errors.is_empty(), "expected an export within a function to produce a check error, but no errors were produced");
+    assert!(
+        !errors.is_empty(),
+        "expected an export within a function to produce a check error, but no errors were produced"
+    );
     assert!(semantic.module_record().exported_bindings.is_empty());
 }
 
@@ -245,5 +248,13 @@ fn test_import_assignment() {
     SemanticTester::ts("import { Foo } from './foo'; import Baz = Foo.Bar.Baz")
         .has_root_symbol("Baz")
         .contains_flags(SymbolFlags::Import)
+        .test();
+}
+
+#[test]
+fn test_import_type() {
+    SemanticTester::ts(r#"import { type "<A>" as someA } from './a'; "#)
+        .has_root_symbol("someA")
+        .contains_flags(SymbolFlags::TypeImport)
         .test();
 }

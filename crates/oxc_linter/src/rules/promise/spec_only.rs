@@ -1,17 +1,22 @@
 use oxc_ast::AstKind;
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_span::GetSpan;
+use oxc_span::{CompactStr, GetSpan, Span};
 use rustc_hash::FxHashSet;
 
 use crate::{context::LintContext, rule::Rule, utils::PROMISE_STATIC_METHODS, AstNode};
+
+fn spec_only(prop_name: &str, member_span: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn(format!("Avoid using non-standard `Promise.{prop_name}`"))
+        .with_label(member_span)
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct SpecOnly(Box<SpecOnlyConfig>);
 
 #[derive(Debug, Default, Clone)]
 pub struct SpecOnlyConfig {
-    allowed_methods: Option<FxHashSet<String>>,
+    allowed_methods: Option<FxHashSet<CompactStr>>,
 }
 
 impl std::ops::Deref for SpecOnly {
@@ -53,7 +58,7 @@ impl Rule for SpecOnly {
             .and_then(|v| v.get("allowedMethods"))
             .and_then(serde_json::Value::as_array)
             .map(|v| {
-                v.iter().filter_map(serde_json::Value::as_str).map(ToString::to_string).collect()
+                v.iter().filter_map(serde_json::Value::as_str).map(CompactStr::from).collect()
             });
 
         Self(Box::new(SpecOnlyConfig { allowed_methods }))
@@ -82,10 +87,7 @@ impl Rule for SpecOnly {
             }
         }
 
-        ctx.diagnostic(
-            OxcDiagnostic::warn(format!("Avoid using non-standard `Promise.{prop_name}`"))
-                .with_label(member_expr.span()),
-        );
+        ctx.diagnostic(spec_only(prop_name, member_expr.span()));
     }
 }
 

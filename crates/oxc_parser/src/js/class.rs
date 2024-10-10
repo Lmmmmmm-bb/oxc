@@ -1,7 +1,8 @@
 use oxc_allocator::{Box, Vec};
-use oxc_ast::{ast::*, syntax_directed_operations::PropName};
+use oxc_ast::ast::*;
 use oxc_diagnostics::Result;
 use oxc_span::{GetSpan, Span};
+use oxc_syntax_operations::PropName;
 
 use crate::{
     diagnostics,
@@ -184,7 +185,7 @@ impl<'a> ParserImpl<'a> {
 
         let span = self.start_span();
 
-        let modifiers = self.parse_modifiers(true, false, true);
+        let modifiers = self.parse_modifiers(true, true, true);
 
         let mut kind = MethodDefinitionKind::Method;
         let mut generator = false;
@@ -274,6 +275,10 @@ impl<'a> ParserImpl<'a> {
 
         if optional && definite {
             self.error(diagnostics::optional_definite_property(optional_span.expand_right(1)));
+        }
+
+        if modifiers.contains(ModifierKind::Const) {
+            self.error(diagnostics::const_class_member(key.span()));
         }
 
         if let PropertyKey::PrivateIdentifier(private_ident) = &key {
@@ -421,20 +426,19 @@ impl<'a> ParserImpl<'a> {
         } else {
             MethodDefinitionType::MethodDefinition
         };
-        let method_definition = MethodDefinition {
+        Ok(self.ast.class_element_method_definition(
             r#type,
-            span: self.end_span(span),
+            self.end_span(span),
+            decorators,
             key,
             value,
             kind,
             computed,
             r#static,
             r#override,
-            accessibility,
             optional,
-            decorators,
-        };
-        Ok(ClassElement::MethodDefinition(self.ast.alloc(method_definition)))
+            accessibility,
+        ))
     }
 
     /// `FieldDefinition`[?Yield, ?Await] ;
@@ -464,23 +468,22 @@ impl<'a> ParserImpl<'a> {
         } else {
             PropertyDefinitionType::PropertyDefinition
         };
-        let property_definition = PropertyDefinition {
+        Ok(self.ast.class_element_property_definition(
             r#type,
-            span: self.end_span(span),
+            self.end_span(span),
+            decorators,
             key,
             value,
             computed,
             r#static,
             declare,
             r#override,
+            optional,
+            definite,
             readonly,
             type_annotation,
             accessibility,
-            optional,
-            definite,
-            decorators,
-        };
-        Ok(ClassElement::PropertyDefinition(self.ast.alloc(property_definition)))
+        ))
     }
 
     /// `ClassStaticBlockStatementList` :

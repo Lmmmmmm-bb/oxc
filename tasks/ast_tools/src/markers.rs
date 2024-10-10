@@ -38,8 +38,9 @@ impl Parse for VisitArg {
 pub struct VisitArgs(Punctuated<VisitArg, Token![,]>);
 
 impl IntoIterator for VisitArgs {
-    type Item = VisitArg;
     type IntoIter = syn::punctuated::IntoIter<Self::Item>;
+    type Item = VisitArg;
+
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -63,7 +64,10 @@ pub struct VisitMarkers {
 /// A struct representing `#[scope(...)]` markers
 #[derive(Default, Debug)]
 pub struct ScopeMarkers {
+    /// `#[scope(enter_before)]`
     pub enter_before: bool,
+    /// `#[scope(exit_before)]`
+    pub exit_before: bool,
 }
 
 /// A struct representing all the helper attributes that might be used with `#[generate_derive(...)]`
@@ -137,7 +141,7 @@ pub fn get_visit_markers<'a, I>(attrs: I) -> crate::Result<VisitMarkers>
 where
     I: IntoIterator<Item = &'a Attribute>,
 {
-    #[allow(clippy::trivially_copy_pass_by_ref)]
+    #[expect(clippy::trivially_copy_pass_by_ref)]
     fn predicate(it: &&Attribute) -> bool {
         it.path().is_ident("visit")
     }
@@ -186,7 +190,7 @@ pub fn get_scope_markers<'a, I>(attrs: I) -> crate::Result<ScopeMarkers>
 where
     I: IntoIterator<Item = &'a Attribute>,
 {
-    #[allow(clippy::trivially_copy_pass_by_ref)]
+    #[expect(clippy::trivially_copy_pass_by_ref)]
     fn predicate(it: &&Attribute) -> bool {
         it.path().is_ident("scope")
     }
@@ -203,7 +207,10 @@ where
         || Ok(ScopeMarkers::default()),
         |attr| {
             attr.parse_args_with(Ident::parse)
-                .map(|id| ScopeMarkers { enter_before: id == "enter_before" })
+                .map(|id| ScopeMarkers {
+                    enter_before: id == "enter_before",
+                    exit_before: id == "exit_before",
+                })
                 .normalize()
         },
     )

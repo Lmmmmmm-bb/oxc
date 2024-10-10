@@ -2,6 +2,10 @@
 source: crates/oxc_semantic/tests/main.rs
 input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/import/type-inline-value.ts
 ---
+================================================================================
+SCOPES
+================================================================================
+
 [
   {
     "children": [
@@ -24,7 +28,7 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/import/type-inl
         "node": "ImportSpecifier(foo)",
         "references": [
           {
-            "flags": "ReferenceFlags(Type | TSTypeQuery)",
+            "flags": "ReferenceFlags(Type)",
             "id": 0,
             "name": "foo",
             "node_id": 11
@@ -41,3 +45,9 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/import/type-inl
     ]
   }
 ]
+
+================================================================================
+CONFORMANCE
+================================================================================
+
+All tests passed.

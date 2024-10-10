@@ -2,10 +2,11 @@ use std::borrow::Cow;
 
 use oxc_span::CompactStr;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // <https://github.com/jsx-eslint/eslint-plugin-react#configuration-legacy-eslintrc->
-#[derive(Debug, Deserialize, Default, JsonSchema)]
+#[derive(Debug, Deserialize, Default, Serialize, JsonSchema)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ReactPluginSettings {
     #[serde(default)]
     #[serde(rename = "formComponents")]
@@ -30,7 +31,8 @@ impl ReactPluginSettings {
 
 // Deserialize helper types
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(untagged)]
 enum CustomComponent {
     NameOnly(CompactStr),
@@ -53,7 +55,7 @@ fn get_component_attrs_by_name<'c>(
     for item in components {
         match item {
             CustomComponent::NameOnly(comp_name) if comp_name == name => {
-                return Some(Cow::Owned(vec![]))
+                return Some(Cow::Owned(vec![]));
             }
             CustomComponent::ObjectWithOneAttr { name: comp_name, attribute }
                 if comp_name == name =>

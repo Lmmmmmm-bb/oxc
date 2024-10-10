@@ -6,12 +6,14 @@ use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
 use oxc_span::Span;
 
-use crate::{context::LintContext, rule::Rule, AstNode};
+use crate::{
+    context::{ContextHost, LintContext},
+    rule::Rule,
+    AstNode,
+};
 
-fn jsx_no_undef_diagnostic(x0: &str, span1: Span) -> OxcDiagnostic {
-    OxcDiagnostic::warn("Disallow undeclared variables in JSX")
-        .with_help(format!("'{x0}' is not defined."))
-        .with_label(span1)
+fn jsx_no_undef_diagnostic(ident_name: &str, span1: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn(format!("'{ident_name}' is not defined.")).with_label(span1)
 }
 
 #[derive(Debug, Default, Clone)]
@@ -35,16 +37,19 @@ declare_oxc_lint!(
 
 fn get_resolvable_ident<'a>(node: &'a JSXElementName<'a>) -> Option<&'a IdentifierReference> {
     match node {
-        JSXElementName::Identifier(_) | JSXElementName::NamespacedName(_) => None,
+        JSXElementName::Identifier(_)
+        | JSXElementName::NamespacedName(_)
+        | JSXElementName::ThisExpression(_) => None,
         JSXElementName::IdentifierReference(ref ident) => Some(ident),
-        JSXElementName::MemberExpression(expr) => Some(get_member_ident(expr)),
+        JSXElementName::MemberExpression(expr) => get_member_ident(expr),
     }
 }
 
-fn get_member_ident<'a>(mut expr: &'a JSXMemberExpression<'a>) -> &'a IdentifierReference {
+fn get_member_ident<'a>(mut expr: &'a JSXMemberExpression<'a>) -> Option<&'a IdentifierReference> {
     loop {
         match &expr.object {
-            JSXMemberExpressionObject::IdentifierReference(ident) => return ident,
+            JSXMemberExpressionObject::IdentifierReference(ident) => return Some(ident),
+            JSXMemberExpressionObject::ThisExpression(_) => return None,
             JSXMemberExpressionObject::MemberExpression(next_expr) => {
                 expr = next_expr;
             }
@@ -61,10 +66,6 @@ impl Rule for JsxNoUndef {
                     return;
                 }
                 let name = ident.name.as_str();
-                // TODO: Remove this check once we have `JSXMemberExpressionObject::ThisExpression`
-                if name == "this" {
-                    return;
-                }
                 if ctx.globals().is_enabled(name) {
                     return;
                 }
@@ -73,7 +74,7 @@ impl Rule for JsxNoUndef {
         }
     }
 
-    fn should_run(&self, ctx: &LintContext) -> bool {
+    fn should_run(&self, ctx: &ContextHost) -> bool {
         ctx.source_type().is_jsx()
     }
 }

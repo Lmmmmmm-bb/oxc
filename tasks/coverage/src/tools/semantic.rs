@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use oxc::span::SourceType;
-use oxc::transformer::{
-    ES2015Options, ReactJsxRuntime, ReactOptions, TransformOptions, TypeScriptOptions,
+use oxc::{
+    span::SourceType,
+    transformer::{ES2015Options, JsxOptions, JsxRuntime, TransformOptions, TypeScriptOptions},
 };
 
 use crate::{
@@ -18,7 +18,7 @@ fn get_default_transformer_options() -> TransformOptions {
     TransformOptions {
         typescript: TypeScriptOptions::default(),
         es2015: ES2015Options { arrow_function: None },
-        react: ReactOptions {
+        react: JsxOptions {
             jsx_plugin: true,
             jsx_self_plugin: true,
             jsx_source_plugin: true,
@@ -150,7 +150,7 @@ impl Case for SemanticTypeScriptCase {
         // handle @jsx: react, `react` of behavior is match babel following options
         if self.base.settings.jsx.last().is_some_and(|jsx| jsx == "react") {
             source_type = source_type.with_module(true);
-            options.react.runtime = ReactJsxRuntime::Classic;
+            options.react.runtime = JsxRuntime::Classic;
         }
         get_result(self.base.code(), source_type, self.path(), Some(options))
     }

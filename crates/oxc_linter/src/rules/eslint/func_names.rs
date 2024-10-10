@@ -1,13 +1,15 @@
 use std::borrow::Cow;
 
-use oxc_ast::ast::{
-    AssignmentTarget, AssignmentTargetProperty, BindingPatternKind, Expression, Function,
-    FunctionType, MethodDefinitionKind, PropertyKey, PropertyKind,
+use oxc_ast::{
+    ast::{
+        AssignmentTarget, AssignmentTargetProperty, BindingPatternKind, Expression, Function,
+        FunctionType, MethodDefinitionKind, PropertyKey, PropertyKind,
+    },
+    AstKind,
 };
-use oxc_ast::AstKind;
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_semantic::AstNodeId;
+use oxc_semantic::NodeId;
 use oxc_span::{Atom, GetSpan, Span};
 use oxc_syntax::identifier::is_identifier_name;
 use phf::phf_set;
@@ -370,7 +372,7 @@ impl Rule for FuncNames {
     fn run_once(&self, ctx: &LintContext<'_>) {
         let mut invalid_funcs: Vec<(&Function, &AstNode)> = vec![];
 
-        for node in ctx.nodes().iter() {
+        for node in ctx.nodes() {
             match node.kind() {
                 // check function if it invalid, do not report it because maybe later the function is calling itself
                 AstKind::Function(func) => {
@@ -477,7 +479,7 @@ impl Rule for FuncNames {
     }
 }
 
-fn guess_function_name<'a>(ctx: &LintContext<'a>, parent_id: AstNodeId) -> Option<Cow<'a, str>> {
+fn guess_function_name<'a>(ctx: &LintContext<'a>, parent_id: NodeId) -> Option<Cow<'a, str>> {
     for parent_kind in ctx.nodes().iter_parents(parent_id).map(AstNode::kind) {
         match parent_kind {
             AstKind::ParenthesizedExpression(_)
@@ -485,10 +487,10 @@ fn guess_function_name<'a>(ctx: &LintContext<'a>, parent_id: AstNodeId) -> Optio
             | AstKind::TSNonNullExpression(_)
             | AstKind::TSSatisfiesExpression(_) => continue,
             AstKind::AssignmentExpression(assign) => {
-                return assign.left.get_identifier().map(Cow::Borrowed)
+                return assign.left.get_identifier().map(Cow::Borrowed);
             }
             AstKind::VariableDeclarator(decl) => {
-                return decl.id.get_identifier().as_ref().map(Atom::as_str).map(Cow::Borrowed)
+                return decl.id.get_identifier().as_ref().map(Atom::as_str).map(Cow::Borrowed);
             }
             AstKind::ObjectProperty(prop) => {
                 return prop.key.static_name().and_then(|name| {
@@ -497,7 +499,7 @@ fn guess_function_name<'a>(ctx: &LintContext<'a>, parent_id: AstNodeId) -> Optio
                     } else {
                         None
                     }
-                })
+                });
             }
             AstKind::PropertyDefinition(prop) => {
                 return prop.key.static_name().and_then(|name| {
@@ -506,7 +508,7 @@ fn guess_function_name<'a>(ctx: &LintContext<'a>, parent_id: AstNodeId) -> Optio
                     } else {
                         None
                     }
-                })
+                });
             }
             _ => return None,
         }
@@ -532,8 +534,9 @@ fn is_valid_identifier_name(name: &str) -> bool {
 
 #[test]
 fn test() {
-    use crate::tester::Tester;
     use serde_json::json;
+
+    use crate::tester::Tester;
 
     let always = Some(json!(["always"]));
     let as_needed = Some(json!(["as-needed"]));
@@ -679,8 +682,7 @@ fn test() {
         ("class C { foo = function bar() {} }", never.clone()), // { "ecmaVersion": 2022 }
     ];
 
-    let fix =
-        vec![
+    let fix = vec![
         // lb
         ("const foo = function() {}", "const foo = function foo() {}", always.clone()),
         (
@@ -784,16 +786,18 @@ fn test() {
             "const foo = async function*  foo<T extends foo>(){}",
             always.clone(),
         ),
-        // we can't fix this case because adding a name would cause the 
-        ("const setState = Component.prototype.setState;
+        // we can't fix this case because adding a name would cause the
+        (
+            "const setState = Component.prototype.setState;
              Component.prototype.setState = function (update, callback) {
 	             return setState.call(this, update, callback);
             };",
-        "const setState = Component.prototype.setState;
+            "const setState = Component.prototype.setState;
              Component.prototype.setState = function (update, callback) {
 	             return setState.call(this, update, callback);
             };",
-            always.clone(),),
+            always.clone(),
+        ),
     ];
 
     Tester::new(FuncNames::NAME, pass, fail).expect_fix(fix).test_and_snapshot();

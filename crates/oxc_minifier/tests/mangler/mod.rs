@@ -8,11 +8,11 @@ use oxc_span::SourceType;
 
 fn mangle(source_text: &str) -> String {
     let allocator = Allocator::default();
-    let source_type = SourceType::default().with_module(true);
+    let source_type = SourceType::mjs();
     let ret = Parser::new(&allocator, source_text, source_type).parse();
     let program = ret.program;
     let mangler = Mangler::new().build(&program);
-    CodeGenerator::new().with_mangler(Some(mangler)).build(&program).source_text
+    CodeGenerator::new().with_mangler(Some(mangler)).build(&program).code
 }
 
 #[test]
@@ -22,6 +22,8 @@ fn mangler() {
         "function foo(a) { let _ = { x } }",
         "function foo(a) { let { x } = y }",
         "var x; function foo(a) { ({ x } = y) }",
+        "import { x } from 's'; export { x }",
+        "function _ (exports) { Object.defineProperty(exports, '__esModule', { value: true }) }",
     ];
 
     let snapshot = cases.into_iter().fold(String::new(), |mut w, case| {

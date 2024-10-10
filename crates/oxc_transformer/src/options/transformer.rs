@@ -13,8 +13,10 @@ use crate::{
     es2020::ES2020Options,
     es2021::ES2021Options,
     options::babel::BabelOptions,
-    react::ReactOptions,
+    react::JsxOptions,
+    regexp::RegExpOptions,
     typescript::TypeScriptOptions,
+    ReactRefreshOptions,
 };
 
 /// <https://babel.dev/docs/options>
@@ -36,7 +38,9 @@ pub struct TransformOptions {
     pub typescript: TypeScriptOptions,
 
     /// [preset-react](https://babeljs.io/docs/babel-preset-react)
-    pub react: ReactOptions,
+    pub react: JsxOptions,
+
+    pub regexp: RegExpOptions,
 
     pub es2015: ES2015Options,
 
@@ -52,6 +56,39 @@ pub struct TransformOptions {
 }
 
 impl TransformOptions {
+    /// Explicitly enable all plugins that are ready, mainly for testing purposes.
+    pub fn enable_all() -> Self {
+        Self {
+            cwd: PathBuf::new(),
+            assumptions: CompilerAssumptions::default(),
+            typescript: TypeScriptOptions::default(),
+            react: JsxOptions {
+                development: true,
+                refresh: Some(ReactRefreshOptions::default()),
+                ..JsxOptions::default()
+            },
+            regexp: RegExpOptions {
+                sticky_flag: true,
+                unicode_flag: true,
+                dot_all_flag: true,
+                look_behind_assertions: true,
+                named_capture_groups: true,
+                unicode_property_escapes: true,
+                match_indices: true,
+                set_notation: true,
+            },
+            es2015: ES2015Options {
+                // Turned off because it is not ready.
+                arrow_function: None,
+            },
+            es2016: ES2016Options { exponentiation_operator: true },
+            es2018: ES2018Options { object_rest_spread: Some(ObjectRestSpreadOptions::default()) },
+            es2019: ES2019Options { optional_catch_binding: true },
+            es2020: ES2020Options { nullish_coalescing_operator: true },
+            es2021: ES2021Options { logical_assignment_operators: true },
+        }
+    }
+
     fn from_targets_and_bugfixes(targets: Option<&Versions>, bugfixes: bool) -> Self {
         Self {
             es2015: ES2015Options::from_targets_and_bugfixes(targets, bugfixes),
@@ -60,6 +97,7 @@ impl TransformOptions {
             es2019: ES2019Options::from_targets_and_bugfixes(targets, bugfixes),
             es2020: ES2020Options::from_targets_and_bugfixes(targets, bugfixes),
             es2021: ES2021Options::from_targets_and_bugfixes(targets, bugfixes),
+            regexp: RegExpOptions::from_targets_and_bugfixes(targets, bugfixes),
             ..Default::default()
         }
     }
@@ -117,11 +155,11 @@ impl TransformOptions {
 
         let preset_name = "react";
         transformer_options.react = if let Some(value) = get_preset_options(preset_name, options) {
-            match from_value::<ReactOptions>(value) {
+            match from_value::<JsxOptions>(value) {
                 Ok(res) => res,
                 Err(err) => {
                     report_error(preset_name, &err, true, &mut errors);
-                    ReactOptions::default()
+                    JsxOptions::default()
                 }
             }
         } else {
@@ -130,17 +168,17 @@ impl TransformOptions {
             let mut react_options =
                 if has_jsx_plugin {
                     let plugin_name = "transform-react-jsx";
-                    from_value::<ReactOptions>(get_plugin_options(plugin_name, options))
+                    from_value::<JsxOptions>(get_plugin_options(plugin_name, options))
                         .unwrap_or_else(|err| {
                             report_error(plugin_name, &err, false, &mut errors);
-                            ReactOptions::default()
+                            JsxOptions::default()
                         })
                 } else {
                     let plugin_name = "transform-react-jsx-development";
-                    from_value::<ReactOptions>(get_plugin_options(plugin_name, options))
+                    from_value::<JsxOptions>(get_plugin_options(plugin_name, options))
                         .unwrap_or_else(|err| {
                             report_error(plugin_name, &err, false, &mut errors);
-                            ReactOptions::default()
+                            JsxOptions::default()
                         })
                 };
             react_options.development = has_jsx_development_plugin;
@@ -214,6 +252,29 @@ impl TransformOptions {
                     })
             }
         };
+
+        let regexp = transformer_options.regexp;
+        if !regexp.sticky_flag {
+            transformer_options.regexp.sticky_flag = options.has_plugin("transform-sticky-regex");
+        }
+        if !regexp.unicode_flag {
+            transformer_options.regexp.unicode_flag = options.has_plugin("transform-unicode-regex");
+        }
+        if !regexp.dot_all_flag {
+            transformer_options.regexp.dot_all_flag = options.has_plugin("transform-dotall-regex");
+        }
+        if !regexp.named_capture_groups {
+            transformer_options.regexp.named_capture_groups =
+                options.has_plugin("transform-named-capturing-groups-regex");
+        }
+        if !regexp.unicode_property_escapes {
+            transformer_options.regexp.unicode_property_escapes =
+                options.has_plugin("transform-unicode-property-regex");
+        }
+        if !regexp.set_notation {
+            transformer_options.regexp.set_notation =
+                options.has_plugin("transform-unicode-sets-regex");
+        }
 
         transformer_options.assumptions = if options.assumptions.is_null() {
             CompilerAssumptions::default()

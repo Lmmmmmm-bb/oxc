@@ -188,11 +188,8 @@ fn test_enums() {
         .nodes()
         .iter()
         .find_map(|node| {
-            if let AstKind::TSEnumDeclaration(e) = node.kind() {
-                Some((node, e))
-            } else {
-                None
-            }
+            let e = node.kind().as_ts_enum_declaration()?;
+            Some((node, e))
         })
         .expect("Expected TS test case to have an enum declaration for A.");
 
@@ -202,7 +199,11 @@ fn test_enums() {
         "Expected `enum A` to be created in the top-level scope."
     );
     let enum_decl_scope_id = enum_decl.scope_id.get().expect("Enum declaration has no scope id");
-    assert_ne!(enum_node.scope_id(), enum_decl_scope_id, "Enum declaration nodes should contain the scope ID they create, not the scope ID they're created in.");
+    assert_ne!(
+        enum_node.scope_id(),
+        enum_decl_scope_id,
+        "Enum declaration nodes should contain the scope ID they create, not the scope ID they're created in."
+    );
     assert_eq!(enum_decl.members.len(), 3);
 }
 
@@ -237,4 +238,26 @@ fn get_child_ids() {
     assert_eq!(child_scope_ids.len(), 1);
     let child_scope_ids = scopes.get_child_ids(child_scope_ids[0]);
     assert!(child_scope_ids.is_empty());
+}
+
+#[test]
+fn test_ts_conditional_types() {
+    SemanticTester::ts("type A<T> = T extends string ? T : false;")
+        .has_some_symbol("T")
+        .has_number_of_references(2)
+        .test();
+
+    // Conditional types create a new scope after check_type.
+    SemanticTester::ts(
+        "type S<A> = A extends (infer B extends number ? string : never) ? B : false;",
+    )
+    .has_some_symbol("B")
+    .has_number_of_references(1)
+    .test();
+
+    // Inferred type parameter is only available within true branch
+    SemanticTester::ts("type S<A> = A extends infer R ? never : R")
+        .has_some_symbol("R")
+        .has_number_of_references(0)
+        .test();
 }

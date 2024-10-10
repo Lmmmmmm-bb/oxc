@@ -16,7 +16,11 @@ use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
 use oxc_span::Span;
 
-use crate::{context::LintContext, rule::Rule, AstNode};
+use crate::{
+    context::{ContextHost, LintContext},
+    rule::Rule,
+    AstNode,
+};
 
 fn getter_return_diagnostic(span: Span) -> OxcDiagnostic {
     OxcDiagnostic::warn("Expected to always return a value in getter.")
@@ -38,16 +42,37 @@ const METHODS_TO_WATCH_FOR: [(&str, &str); 4] = [
 
 declare_oxc_lint!(
     /// ### What it does
-    /// Requires all getters to have a return statement
+    ///
+    /// Requires all getters to have a `return` statement.
     ///
     /// ### Why is this bad?
     /// Getters should always return a value. If they don't, it's probably a mistake.
     ///
+    /// This rule does not run on TypeScript files, since type checking will
+    /// catch getters that do not return a value.
+    ///
     /// ### Example
+    ///
+    /// Examples of **incorrect** code for this rule:
     /// ```javascript
-    /// class Person{
-    ///     get name(){
+    /// class Person {
+    ///     get name() {
     ///         // no return
+    ///     }
+    /// }
+    ///
+    /// const obj = {
+    ///     get foo() {
+    ///         // object getter are also checked
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```javascript
+    /// class Person {
+    ///     get name() {
+    ///         return this._name;
     ///     }
     /// }
     /// ```
@@ -57,10 +82,6 @@ declare_oxc_lint!(
 
 impl Rule for GetterReturn {
     fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
-        // https://eslint.org/docs/latest/rules/getter-return#handled_by_typescript
-        if ctx.source_type().is_typescript() {
-            return;
-        }
         match node.kind() {
             AstKind::Function(func) if !func.is_typescript_syntax() => {
                 self.run_diagnostic(node, ctx, func.span);
@@ -81,6 +102,11 @@ impl Rule for GetterReturn {
 
         Self { allow_implicit }
     }
+
+    fn should_run(&self, ctx: &ContextHost) -> bool {
+        // https://eslint.org/docs/latest/rules/getter-return#handled_by_typescript
+        !ctx.source_type().is_typescript()
+    }
 }
 
 impl GetterReturn {
@@ -95,7 +121,7 @@ impl GetterReturn {
     }
 
     fn handle_actual_expression<'a>(callee: &'a Expression<'a>) -> bool {
-        match callee.without_parenthesized() {
+        match callee.without_parentheses() {
             expr @ match_member_expression!(Expression) => {
                 Self::handle_member_expression(expr.to_member_expression())
             }
@@ -112,7 +138,7 @@ impl GetterReturn {
     }
 
     fn handle_paren_expr<'a>(expr: &'a Expression<'a>) -> bool {
-        match expr.without_parenthesized() {
+        match expr.without_parentheses() {
             Expression::CallExpression(ce) => Self::handle_actual_expression(&ce.callee),
             _ => false,
         }
@@ -257,6 +283,7 @@ impl GetterReturn {
                                 e.weight(),
                                 EdgeType::Jump
                                     | EdgeType::Normal
+                                    | EdgeType::Backedge
                                     | EdgeType::Error(ErrorEdgeKind::Explicit)
                             )
                         }) {
@@ -351,6 +378,45 @@ fn test() {
             }
         };
         ", None),
+        // adapted from: https://github.com/1024pix/pix/blob/1352bd8d7f6070f1ff8da79867f543c1c1926e59/mon-pix/app/components/progress-bar.js#L29-L43
+        ("
+        export default class ProgressBar extends Component {
+            get steps() {
+                const steps = [];
+
+                for (let i = 0; i < this.maxStepsNumber; i++) {
+                    steps.push({
+                        stepnum: i + 1,
+                    });
+                }
+
+                return steps;
+            }
+        }", None),
+        ("
+        var foo = {
+            get bar() {
+                for (let i = 0; i<10; i++) {
+                    if (i === 5) {
+                        return i;
+                    }
+                }
+                return 0;
+            }
+        }", None),
+        ("
+        var foo = {
+            get bar() {
+                let i = 0;
+                while (i < 10) {
+                    if (i === 5) {
+                        return i;
+                    }
+                    i++;
+                }
+                return 0;
+            }
+        }", None),
     ];
 
     let fail = vec![
@@ -426,9 +492,48 @@ fn test() {
         ),
         ("var foo = { get bar() { try { return a(); } catch {} } };", None),
         ("var foo = { get bar() { try { return a(); } catch {  } finally {  } } };", None),
+        (
+            "
+        var foo = {
+            get bar() {
+                for (let i = 0; i<10; i++) {
+                    return i;
+                }
+            }
+        }",
+            None,
+        ),
+        (
+            "
+        var foo = {
+            get bar() {
+                let i = 0;
+                while (i < 10) {
+                    return i;
+                }
+            }
+        }",
+            None,
+        ),
     ];
 
     Tester::new(GetterReturn::NAME, pass, fail)
         .change_rule_path_extension("js")
         .test_and_snapshot();
+
+    // TypeScript tests
+    let pass = vec![(
+        "var foo = {
+            get bar(): boolean | undefined {
+                if (Math.random() > 0.5) {
+                    return true;
+                }
+            }
+        };",
+        None,
+    )];
+
+    let fail = vec![];
+
+    Tester::new(GetterReturn::NAME, pass, fail).test();
 }

@@ -116,12 +116,23 @@ declare_oxc_lint!(
     ///
     /// ### Why is this bad?
     ///
-    /// ### Example
+    /// Side-effects in module initialization can hinder tree-shaking, which aims to remove
+    /// unused code. If side-effects exist, it's harder for the bundler to safely eliminate
+    /// code, leading to larger bundles and potentially unexpected behavior. Ensuring minimal
+    /// side-effects allows bundlers to optimize code effectively.
     ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
     /// ```javascript
     /// myGlobal = 17; // Cannot determine side-effects of assignment to global variable
     /// const x = { [globalFunction()]: "myString" }; // Cannot determine side-effects of calling global function
-    /// export default 42;
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```javascript
+    /// const localVar = 17; // Local variable assignment, no global side-effects
+    /// export default 42; // Pure export with no side-effects
     /// ```
     ///
     /// ### Options
@@ -346,6 +357,11 @@ fn test() {
         r#"export {x as default} from "import""#,
         "export const /* tree-shaking no-side-effects-when-called */ x = function(){}",
         "export function /* tree-shaking no-side-effects-when-called */ x(){}",
+        "
+            { let x = ext; }
+            let x =  () => {}
+            export {/* tree-shaking no-side-effects-when-called */ x}
+        ",
         "const x = function(){}; export {/* tree-shaking no-side-effects-when-called */ x}",
         // ExpressionStatement
         "const x = 1",
@@ -632,6 +648,11 @@ fn test() {
         "export const /* tree-shaking no-side-effects-when-called */ x = ext",
         "export function /* tree-shaking no-side-effects-when-called */ x(){ext()}",
         "const x = ext; export {/* tree-shaking no-side-effects-when-called */ x}",
+        "
+            { let x = () => {}; }
+            let x = ext 
+            export {/* tree-shaking no-side-effects-when-called */ x}
+        ",
         // ExpressionStatement
         "ext()",
         // ForInStatement

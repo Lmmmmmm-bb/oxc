@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use oxc_ast::{ast::*, AstKind};
-use oxc_semantic::{AstNode, AstNodeId, Reference, ScopeId, SymbolFlags, SymbolId};
+use oxc_semantic::{AstNode, NodeId, Reference, ScopeId, SymbolFlags, SymbolId};
 use oxc_span::{GetSpan, Span};
 
 use super::{ignored::FoundStatus, NoUnusedVars, Symbol};
@@ -163,7 +163,7 @@ impl<'s, 'a> Symbol<'s, 'a> {
                         return b
                             .body
                             .first()
-                            .is_some_and(|s| matches!(s, Statement::ReturnStatement(_)))
+                            .is_some_and(|s| matches!(s, Statement::ReturnStatement(_)));
                     }
                     _ => return false,
                 },
@@ -244,7 +244,7 @@ impl<'s, 'a> Symbol<'s, 'a> {
     /// type Foo = Array<Bar>
     /// ```
     fn is_type_self_usage(&self, reference: &Reference) -> bool {
-        for parent in self.iter_relevant_parents(reference.node_id()).map(AstNode::kind) {
+        for parent in self.iter_relevant_parents_of(reference.node_id()).map(AstNode::kind) {
             match parent {
                 AstKind::TSTypeAliasDeclaration(decl) => {
                     return self == &decl.id;
@@ -341,8 +341,12 @@ impl<'s, 'a> Symbol<'s, 'a> {
                 }
                 // When symbol is being assigned a new value, we flag the reference
                 // as only affecting itself until proven otherwise.
-                AstKind::UpdateExpression(_) | AstKind::SimpleAssignmentTarget(_) => {
-                    is_used_by_others = false;
+                AstKind::UpdateExpression(UpdateExpression { argument, .. })
+                | AstKind::SimpleAssignmentTarget(argument) => {
+                    // `a.b++` or `a[b] + 1` are not reassignment of `a`
+                    if !argument.is_member_expression() {
+                        is_used_by_others = false;
+                    }
                 }
                 // RHS usage when LHS != reference's symbol is definitely used by
                 // others
@@ -420,8 +424,8 @@ impl<'s, 'a> Symbol<'s, 'a> {
     }
 
     /// Check if a [`AstNode`] is within a return statement or implicit return.
-    fn is_in_return_statement(&self, node_id: AstNodeId) -> bool {
-        for parent in self.iter_relevant_parents(node_id).map(AstNode::kind) {
+    fn is_in_return_statement(&self, node_id: NodeId) -> bool {
+        for parent in self.iter_relevant_parents_of(node_id).map(AstNode::kind) {
             match parent {
                 AstKind::ReturnStatement(_) => return true,
                 AstKind::ExpressionStatement(_) => continue,
@@ -603,7 +607,8 @@ impl<'s, 'a> Symbol<'s, 'a> {
         let decl_scope_id = self.scope_id();
         let call_scope_id = self.get_ref_scope(reference);
         let Some(container_id) = self.declaration().kind().get_container_scope_id() else {
-            debug_assert!(false,
+            debug_assert!(
+                false,
                 "Found a function call or or new expr reference on a node flagged as a function or class, but the symbol's declaration node has no scope id. It should always be a container."
             );
             return false;
@@ -647,17 +652,17 @@ impl<'s, 'a> Symbol<'s, 'a> {
     /// 2. "relevant" nodes are non "transparent". For example, parenthesis are "transparent".
     #[inline]
     fn get_ref_relevant_node(&self, reference: &Reference) -> Option<&AstNode<'a>> {
-        self.iter_relevant_parents(reference.node_id()).next()
+        self.iter_relevant_parents_of(reference.node_id()).next()
     }
 
     /// Find the [`SymbolId`] for the nearest function declaration or expression
     /// that is a parent of `node_id`.
-    fn get_nearest_function(&self, node_id: AstNodeId) -> Option<SymbolId> {
+    fn get_nearest_function(&self, node_id: NodeId) -> Option<SymbolId> {
         // set to `true` when we find an arrow function and we want to get its
         // name from the variable its assigned to.
         let mut needs_variable_identifier = false;
 
-        for parent in self.iter_relevant_parents(node_id) {
+        for parent in self.iter_relevant_parents_of(node_id) {
             match parent.kind() {
                 AstKind::Function(f) => {
                     return f.id.as_ref().and_then(|id| id.symbol_id.get());
@@ -667,7 +672,7 @@ impl<'s, 'a> Symbol<'s, 'a> {
                     continue;
                 }
                 AstKind::VariableDeclarator(decl) if needs_variable_identifier => {
-                    return decl.id.get_binding_identifier().and_then(|id| id.symbol_id.get())
+                    return decl.id.get_binding_identifier().and_then(|id| id.symbol_id.get());
                 }
                 AstKind::AssignmentTarget(target) if needs_variable_identifier => {
                     return match target {
@@ -676,7 +681,7 @@ impl<'s, 'a> Symbol<'s, 'a> {
                             .get()
                             .and_then(|rid| self.symbols().get_reference(rid).symbol_id()),
                         _ => None,
-                    }
+                    };
                 }
                 AstKind::Program(_) => {
                     return None;

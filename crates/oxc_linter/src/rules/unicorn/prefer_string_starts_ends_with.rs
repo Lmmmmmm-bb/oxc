@@ -4,6 +4,7 @@ use oxc_ast::{
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
+use oxc_regular_expression::ast::{BoundaryAssertionKind, Term};
 use oxc_span::{GetSpan, Span};
 
 use crate::{
@@ -34,12 +35,15 @@ declare_oxc_lint!(
     /// Using `String#startsWith()` and `String#endsWith()` is more readable and performant as it does not need to parse a regex.
     ///
     /// ### Example
+    ///
+    /// Examples of **incorrect** code for this rule:
     /// ```javascript
-    /// // Bad
     /// const foo = "hello";
     /// /^abc/.test(foo);
+    /// ```
     ///
-    /// // Good
+    /// Examples of **correct** code for this rule:
+    /// ```javascript
     /// const foo = "hello";
     /// foo.startsWith("abc");
     /// ```
@@ -70,11 +74,12 @@ impl Rule for PreferStringStartsEndsWith {
             return;
         }
 
-        let Expression::RegExpLiteral(regex) = &member_expr.object().without_parenthesized() else {
+        let Expression::RegExpLiteral(regex) = &member_expr.object().without_parentheses() else {
             return;
         };
 
         let pattern_text = regex.regex.pattern.source_text(ctx.source_text());
+        let pattern_text = pattern_text.as_ref();
 
         let Some(err_kind) = check_regex(regex, pattern_text) else {
             return;
@@ -117,7 +122,7 @@ fn can_replace(call_expr: &CallExpression) -> Option<Span> {
 
     let arg = &call_expr.arguments[0];
     let expr = arg.as_expression()?;
-    match expr.without_parenthesized() {
+    match expr.without_parentheses() {
         Expression::StringLiteral(s) => Some(s.span),
         Expression::TemplateLiteral(s) => Some(s.span),
         Expression::Identifier(ident) => Some(ident.span),
@@ -142,24 +147,33 @@ fn check_regex(regexp_lit: &RegExpLiteral, pattern_text: &str) -> Option<ErrorKi
         return None;
     }
 
-    if pattern_text.starts_with('^')
-        && is_simple_string(&pattern_text[1..regexp_lit.regex.pattern.len()])
-    {
-        return Some(ErrorKind::StartsWith);
+    let alternatives = regexp_lit.regex.pattern.as_pattern().map(|pattern| &pattern.body.body)?;
+    // Must not be something with multiple alternatives like `/^a|b/`
+    if alternatives.len() > 1 {
+        return None;
+    }
+    let pattern_terms = alternatives.first().map(|it| &it.body)?;
+
+    if let Some(Term::BoundaryAssertion(boundary_assert)) = pattern_terms.first() {
+        if boundary_assert.kind == BoundaryAssertionKind::Start
+            && pattern_terms.iter().skip(1).all(|term| matches!(term, Term::Character(_)))
+        {
+            return Some(ErrorKind::StartsWith);
+        }
     }
 
-    if pattern_text.ends_with('$')
-        && is_simple_string(&pattern_text[0..regexp_lit.regex.pattern.len() - 1])
-    {
-        return Some(ErrorKind::EndsWith);
+    if let Some(Term::BoundaryAssertion(boundary_assert)) = pattern_terms.last() {
+        if boundary_assert.kind == BoundaryAssertionKind::End
+            && pattern_terms
+                .iter()
+                .take(pattern_terms.len() - 1)
+                .all(|term| matches!(term, Term::Character(_)))
+        {
+            return Some(ErrorKind::EndsWith);
+        }
     }
 
     None
-}
-
-fn is_simple_string(str: &str) -> bool {
-    str.chars()
-        .all(|c| !matches!(c, '^' | '$' | '+' | '[' | '{' | '(' | '\\' | '.' | '?' | '*' | '|'))
 }
 
 // `/^#/i` => `true` (the `i` flag is useless)

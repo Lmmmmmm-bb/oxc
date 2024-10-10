@@ -4,6 +4,55 @@ All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
 
+## [0.30.4] - 2024-09-28
+
+### Bug Fixes
+
+- fd6798f parser: Remove unintended `pub Kind` (#6109) (Boshen)
+
+## [0.30.0] - 2024-09-23
+
+### Features
+
+- a5f2e9a span: Impl `From<Atom<'a>>` for `Atom` (#5809) (DonIsaac)
+- a07f03a transformer: Sync `Program::source_type` after transform (#5887) (Boshen)
+
+## [0.28.0] - 2024-09-11
+
+- 4a8aec1 span: [**BREAKING**] Change `SourceType::js` to `SourceType::cjs` and `SourceType::mjs` (#5606) (Boshen)
+
+- 603817b oxc: [**BREAKING**] Add `SourceType::Unambiguous`; parse `.js` as unambiguous (#5557) (Boshen)
+
+### Features
+
+- b3cbd56 span: `format_compact_str!` macro (#5610) (overlookmotel)
+
+### Bug Fixes
+
+- 28b934c coverage: Apply `always_strict` to test262 and typescript per the specifcation (#5555) (Boshen)
+- f49e6eb span: Treat `.js` as `module` file (reverts the previous breaking change) (#5612) (Boshen)
+
+### Refactor
+
+- 3d190a5 span: Move `CompactStr` into separate file (#5609) (overlookmotel)
+- 5532628 span: Put types and impl in the same mod file (Boshen)
+
+## [0.27.0] - 2024-09-06
+
+### Features
+
+- 90facd3 ast: Add `ContentHash` trait; remove noop `Hash` implementation from `Span` (#5451) (rzvxa)
+- 23285f4 ast: Add `ContentEq` trait. (#5427) (rzvxa)
+
+### Documentation
+
+- 3f204a9 span: Update docs about `ContentEq` `Vec` comparison speed (#5478) (overlookmotel)
+
+### Refactor
+
+- 9f6e0ed ast: Simplify `ContentEq` trait definition. (#5468) (rzvxa)
+- 94a6ac6 span: Use `Hasher` from `std` (#5476) (overlookmotel)
+
 ## [0.26.0] - 2024-09-03
 
 ### Features

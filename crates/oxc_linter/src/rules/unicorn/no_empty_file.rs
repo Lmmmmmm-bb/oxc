@@ -4,7 +4,7 @@ use oxc_macros::declare_oxc_lint;
 use oxc_span::Span;
 
 use crate::{
-    context::LintContext, partial_loader::LINT_PARTIAL_LOADER_EXT, rule::Rule, utils::is_empty_stmt,
+    context::LintContext, loader::LINT_PARTIAL_LOADER_EXT, rule::Rule, utils::is_empty_stmt,
 };
 
 fn no_empty_file_diagnostic(span: Span) -> OxcDiagnostic {
@@ -70,7 +70,7 @@ impl Rule for NoEmptyFile {
 
 fn has_triple_slash_directive(ctx: &LintContext<'_>) -> bool {
     for comment in ctx.semantic().trivias().comments() {
-        if !comment.kind.is_single_line() {
+        if !comment.is_line() {
             continue;
         }
         let text = comment.span.source_text(ctx.source_text());

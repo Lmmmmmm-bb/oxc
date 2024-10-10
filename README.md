@@ -24,17 +24,23 @@ Oxc is building a parser, linter, formatter, transformer, minifier, resolver ...
 
 See more at [oxc.rs](https://oxc.rs)!
 
+## VoidZero Inc.
+
+Oxc is a project of [VoidZero](https://voidzero.dev/), see our announcement [Announcing VoidZero - Next Generation Toolchain for JavaScript](https://voidzero.dev/blog).
+
+If you have requirements for JavaScript tools at scale, please [get in touch](https://forms.gle/WQgjyzYJpwurpxWKA)!
+
 ## 🙋Who's using Oxc?
 
 - [Rolldown] uses the [oxc][docs-oxc-url] crate for parsing and transformation.
 - [Nova engine](https://trynova.dev) uses the [oxc][docs-oxc-url] crate for parsing.
-- [Rolldown][rolldown], [Biome][biome] and [swc-node](https://github.com/swc-project/swc-node) uses the [oxc_resolver][docs-resolver-url] crate for module resolution.
+- [Rolldown][rolldown], [Biome][biome], [swc-node](https://github.com/swc-project/swc-node) and [Mako][mako] uses the [oxc_resolver][docs-resolver-url] crate for module resolution.
 - Projects and companies like [Preact](https://github.com/preactjs/preact/blob/4c20c23c16dd60f380ce9fe98afc93041a7e1562/oxlint.json), [Shopify](https://oxc.rs/blog/2023-12-12-announcing-oxlint.html#_50-100-times-faster-than-eslint), ByteDance and Shopee uses oxlint for linting.
 - ...[and many more](https://oxc.rs/docs/guide/projects.html)
 
 ## ⚡️ Linter Quick Start
 
-The linter is ready to catch mistakes for you. It comes with 93 rules turned on by default (out of 400+ in total) and no configuration is required.
+The linter is ready to catch mistakes for you. It comes with 93 rules turned on by default (out of 430+ in total) and no configuration is required.
 
 To get started, run [oxlint][npm-oxlint] or via `npx`:
 
@@ -79,7 +85,7 @@ where warm runs complete in 3 minutes.
 
 ### Node.js
 
-- via napi: [oxc-parser][npm-napi], [oxc-transform][npm-napi-transform]
+- via napi: [oxc-parser][npm-napi-parser], [oxc-transform][npm-napi-transform]
 
 ### Wasm
 
@@ -213,13 +219,13 @@ We spend half of our time on strengthening the test infrastructure to prevent pr
 
 [Test Infrastructure](https://oxc.rs/docs/learn/architecture/test.html) documents our test procedures:
 
-* Conformance suite on Test262, Babel, TypeScript
-* Lots of fuzzing
-* Linter snapshot diagnostics
-* oxlint ecosystem ci
-* Idempotency testing
-* Code coverage
-* End to end 3000 top npm packages
+- Conformance suite on Test262, Babel, TypeScript
+- Lots of fuzzing
+- Linter snapshot diagnostics
+- oxlint ecosystem ci
+- Idempotency testing
+- Code coverage
+- End to end 3000 top npm packages
 
 ---
 
@@ -247,13 +253,13 @@ This project was incubated with the assistance of these exceptional mentors and 
 
 - [Biome][biome] - [@ematipico](https://github.com/ematipico)
 - [Ruff][ruff] - [@charliermarsh](https://github.com/charliermarsh), [@MichaReiser](https://github.com/MichaReiser)
-- [quick-lint-js](https://quick-lint-js.com) - [@strager](https://github.com/strager)
+- [quick-lint-js](https://github.com/quick-lint/quick-lint-js) - [@strager](https://github.com/strager)
 - [elm-review](https://package.elm-lang.org/packages/jfmengels/elm-review/latest) - [@jfmengels](https://github.com/jfmengels)
 
 Special thanks go to
 
-* [@domonji](https://github.com/domonji) for bootstrapping this project together, and also completing the TypeScript parser.
-* [@tongtong-lu](https://github.com/tongtong-lu) and [@guan-wy](https://github.com/guan-wy) for designing the [project logo](https://github.com/oxc-project/oxc-assets).
+- [@domonji](https://github.com/domonji) for bootstrapping this project together, and also completing the TypeScript parser.
+- [@tongtong-lu](https://github.com/tongtong-lu) and [@guan-wy](https://github.com/guan-wy) for designing the [project logo](https://github.com/oxc-project/oxc-assets).
 
 ## ❤ Who's [Sponsoring Oxc](https://github.com/sponsors/Boshen)?
 
@@ -321,3 +327,4 @@ Oxc ports or copies code from other open source projects, their licenses are lis
 [vscode]: https://github.com/microsoft/vscode
 [@typescript-eslint]: https://typescript-eslint.io
 [rolldown]: https://rolldown.rs
+[mako]: https://makojs.dev

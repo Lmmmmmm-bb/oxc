@@ -4,6 +4,149 @@ All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
 
+## [0.31.0] - 2024-10-08
+
+- 01b878e parser: [**BREAKING**] Use `BindingIdentifier` for `namespace` declaration names (#6003) (DonIsaac)
+
+- 5a73a66 regular_expression: [**BREAKING**] Simplify public APIs (#6262) (leaysgur)
+
+### Features
+
+- 9e62396 syntax_operations: Add crate `oxc_syntax_operations` (#6202) (Boshen)
+
+### Refactor
+
+- acab777 regular_expression: Misc fixes (#6234) (leaysgur)
+
+## [0.30.2] - 2024-09-27
+
+### Features
+
+- 60c52ba ast: Allow passing span to `void_0` method (#6065) (Dunqing)
+- 28da771 transformer: Do not transform `**` with bigint literals (#6023) (Boshen)
+
+### Bug Fixes
+
+- b1af73d semantic: Do not create a `global` symbol for `declare global {}` (#6040) (DonIsaac)
+
+### Refactor
+
+- 1fc80d1 ast: Move all ts ast related impl methods to `ast_impl` (#6015) (Dunqing)
+
+## [0.30.1] - 2024-09-24
+
+### Documentation
+
+- 5a0d17c ast: Document more AST nodes (#6000) (DonIsaac)
+- 1abfe8f semantic: Document `SymbolTable` (#5998) (DonIsaac)
+
+## [0.30.0] - 2024-09-23
+
+- 033b907 ast: [**BREAKING**] Apply `#[non_exhaustive]`, must use `AstBuilder` (#5787) (Boshen)
+
+### Features
+
+- ae89145 ast: Revert `#[non_exhaustive]` change (#5885) (Boshen)
+- e8bf30a ast: Add `Comment::real_span` (#5764) (Boshen)
+- bcdbba3 codegen: Print jsdoc comments that are attached to statements and class elements (#5845) (Boshen)
+- 4a62703 isolated-declarations: Handle `export` in the `namespace` correctly (#5950) (Dunqing)
+- 3bf7b24 linter: Make `typescript/no-duplicate-enum-values` a `correctness` rule (#5810) (DonIsaac)
+- 8e7556f parser: Calculate leading and trailing position for comments (#5785) (Boshen)
+- 65c337a prettier: Improve ts compatibility (#5900) (Alexander S.)
+- 6d9ccdd prettier: Support TSMappedType (#5834) (Alexander S.)
+- b5ac5a6 prettier: Support TSModuleDeclaration (#5813) (Alexander S.)
+
+### Bug Fixes
+
+- 66e919e ast: Correct TS types for JSX (#5884) (overlookmotel)
+- 0d10521 ast: Serialize `JSXMemberExpressionObject` to estree (#5883) (overlookmotel)
+- a822c9d ast: Serialize `JSXElementName` to estree (#5882) (Boshen)
+- 8780c54 isolated-declarations: Do not union a undefined when the param type is any or unknown (#5930) (Dunqing)
+
+### Documentation
+
+- acc2d16 ast: Document most TypeScript AST nodes (#5983) (DonIsaac)
+- 47c2faa ast: Document TryStatement and related nodes (#5970) (DonIsaac)
+
+### Refactor
+
+- f4fac0f ast: Remove `.iter()` where not needed (#5904) (camchenry)
+- 6dd6f7c ast: Change `Comment` struct (#5783) (Boshen)
+- 7caae5b codegen: Add `GetSpan` requirement to `Gen` trait (#5772) (Boshen)
+- 1c1353b transformer: Use AstBuilder instead of using struct constructor (#5778) (Boshen)
+
+## [0.29.0] - 2024-09-13
+
+- c3dd2a0 ast: [**BREAKING**] Revert: reduce byte size of `TaggedTemplateExpression::quasi` by `Boxing` it (#5679) (#5715) (overlookmotel)
+
+### Features
+
+- 953fe17 ast: Provide `NONE` type for AST builder calls (#5737) (overlookmotel)
+
+### Performance
+
+
+## [0.28.0] - 2024-09-11
+
+- afc4548 ast: [**BREAKING**] Educe byte size of `TaggedTemplateExpression::quasi` by `Boxing` it (#5679) (Boshen)
+
+- 7415e85 ast: [**BREAKING**] Reduce byte size of `TSImportType::attributes` by `Box`ing it (#5678) (Boshen)
+
+- ee4fb42 ast: [**BREAKING**] Reduce size of `WithClause` by `Box`ing it (#5677) (Boshen)
+
+### Features
+
+- 2da5ad1 ast: Add `JSXElementName::get_identifier` method (#5556) (overlookmotel)
+- 68c3cf5 minifier: Fold `void 1` -> `void 0` (#5670) (Boshen)
+- c6bbf94 minifier: Constant fold unary expression (#5669) (Boshen)
+
+### Bug Fixes
+
+- 28b934c coverage: Apply `always_strict` to test262 and typescript per the specifcation (#5555) (Boshen)
+- 0511d55 regular_expression: Report more MayContainStrings error in (nested)class (#5661) (leaysgur)
+
+### Performance
+
+
+### Refactor
+
+- 14ee086 ast: Inline `AstKind::as_*` methods (#5547) (overlookmotel)
+- 2da42ef regular_expression: Improve AST docs with refactoring may_contain_strings (#5665) (leaysgur)- 26d9235 Enable clippy::ref_as_ptr  (#5577) (夕舞八弦)
+
+## [0.27.0] - 2024-09-06
+
+- cba93f5 ast: [**BREAKING**] Add `ThisExpression` variants to `JSXElementName` and `JSXMemberExpressionObject` (#5466) (overlookmotel)
+
+- 87c5df2 ast: [**BREAKING**] Rename `Expression::without_parentheses` (#5448) (overlookmotel)
+
+### Features
+
+- 90facd3 ast: Add `ContentHash` trait; remove noop `Hash` implementation from `Span` (#5451) (rzvxa)
+- 23285f4 ast: Add `ContentEq` trait. (#5427) (rzvxa)
+- 59abf27 ast, parser: Add `oxc_regular_expression` types to the parser and AST. (#5256) (rzvxa)
+- 68a1c01 ast_tools: Add dedicated `Derive` trait. (#5278) (rzvxa)
+- 62f7fff semantic: Check for non-declared, non-abstract object accessors without bodies (#5461) (DonIsaac)
+- 5407143 semantic: Check for non-declared, non-abstract class accessors without bodies (#5460) (DonIsaac)
+- cedf7a4 xtask: Impl `as_ast_kind` method for each variant (#5491) (IWANABETHATGUY)
+
+### Bug Fixes
+
+- 0df1d9d ast, codegen, linter: Panics in fixers. (#5431) (rzvxa)- b96bea4 Add back lifetime (#5507) (IWANABETHATGUY)
+
+### Documentation
+
+- 64db1b4 ast: Clarify docs for `RegExpPattern` (#5497) (overlookmotel)
+
+### Refactor
+
+- a43e951 ast: Use loop instead of recursion (#5447) (overlookmotel)
+- 2224cc4 ast: Renumber `JSXMemberExpressionObject` discriminants (#5464) (overlookmotel)
+- a952c47 ast: Use loop not recursion (#5449) (overlookmotel)
+- d9d7e7c ast: Remove `IdentifierName` from `TSThisParameter` (#5327) (overlookmotel)
+- ccc8a27 ast, ast_tools: Use full method path for generated derives trait calls. (#5462) (rzvxa)
+- fdb8857 linter: Use "parsed pattern" in `no_div_regex` rule. (#5417) (rzvxa)
+- b47aca0 syntax: Use `generate_derive` for `CloneIn` in types outside of `oxc_ast` crate. (#5280) (rzvxa)
+
 ## [0.26.0] - 2024-09-03
 
 - 1aa49af ast: [**BREAKING**] Remove `JSXMemberExpressionObject::Identifier` variant (#5358) (Dunqing)

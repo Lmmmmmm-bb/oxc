@@ -130,12 +130,13 @@ jobs:
           mv target/${{ matrix.target }}/release/*.@(so|dll|dylib) napi/parser/parser.${{ matrix.code-target }}.node
           ls napi/parser
 
+      - uses: ./.github/actions/pnpm
+        if: ${{ contains(matrix.target, 'x86') && !contains(matrix.target, 'musl') }} # Need docker for aarch64
+
       - name: Test
         working-directory: napi/parser
         if: ${{ contains(matrix.target, 'x86') && !contains(matrix.target, 'musl') }} # Need docker for aarch64
-        run: |
-          ls
-          node test.mjs
+        run: pnpm run test
 
       # The binary is zipped to fix permission loss https://github.com/actions/upload-artifact#permission-loss
       - name: Archive Binary
@@ -160,17 +161,13 @@ jobs:
     name: Publish NAPI
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # for `npm publish --provenance`
+      id-token: write # for `pnpm publish --provenance`
     needs:
       - build
     steps:
       - uses: taiki-e/checkout-action@v1
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          registry-url: 'https://registry.npmjs.org'
+      - uses: ./.github/actions/pnpm
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -206,7 +203,7 @@ jobs:
           # publish subpackages first
           for package in npm/oxc-parser-*
           do
-            npm publish $package/ --tag latest --provenance --access public
+            pnpm publish $package/ --provenance --access public --tag latest --no-git-checks
           done
           # publish root package last
-          npm publish npm/oxc-parser/ --provenance --access public --tag latest
+          pnpm publish npm/oxc-parser/ --provenance --access public --tag latest --no-git-checks

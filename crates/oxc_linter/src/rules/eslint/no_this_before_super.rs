@@ -1,17 +1,16 @@
-use std::collections::{HashMap, HashSet};
-
 use oxc_ast::{
     ast::{Argument, Expression, MethodDefinitionKind},
     AstKind,
 };
 use oxc_cfg::{
     graph::visit::{neighbors_filtered_by_edge_weight, EdgeRef},
-    BasicBlockId, ControlFlowGraph, EdgeType, ErrorEdgeKind,
+    BlockNodeId, ControlFlowGraph, EdgeType, ErrorEdgeKind,
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
-use oxc_semantic::AstNodeId;
+use oxc_semantic::NodeId;
 use oxc_span::{GetSpan, Span};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{context::LintContext, rule::Rule, AstNode};
 
@@ -51,7 +50,7 @@ enum DefinitelyCallsThisBeforeSuper {
     #[default]
     No,
     Yes,
-    Maybe(BasicBlockId),
+    Maybe(BlockNodeId),
 }
 
 impl Rule for NoThisBeforeSuper {
@@ -61,12 +60,13 @@ impl Rule for NoThisBeforeSuper {
 
         // first pass -> find super calls and local violations
         let mut wanted_nodes = Vec::new();
-        let mut basic_blocks_with_super_called = HashSet::<BasicBlockId>::new();
-        let mut basic_blocks_with_local_violations = HashMap::<BasicBlockId, Vec<AstNodeId>>::new();
-        for node in semantic.nodes().iter() {
+        let mut basic_blocks_with_super_called = FxHashSet::<BlockNodeId>::default();
+        let mut basic_blocks_with_local_violations =
+            FxHashMap::<BlockNodeId, Vec<NodeId>>::default();
+        for node in semantic.nodes() {
             match node.kind() {
                 AstKind::Function(_) | AstKind::ArrowFunctionExpression(_) => {
-                    if Self::is_wanted_node(node, ctx) {
+                    if Self::is_wanted_node(node, ctx).unwrap_or_default() {
                         wanted_nodes.push(node);
                     }
                 }
@@ -133,33 +133,27 @@ impl Rule for NoThisBeforeSuper {
 }
 
 impl NoThisBeforeSuper {
-    fn is_wanted_node(node: &AstNode, ctx: &LintContext<'_>) -> bool {
-        if let Some(parent) = ctx.nodes().parent_node(node.id()) {
-            if let AstKind::MethodDefinition(mdef) = parent.kind() {
-                if matches!(mdef.kind, MethodDefinitionKind::Constructor) {
-                    let parent_2 = ctx.nodes().parent_node(parent.id());
-                    if let Some(parent_2) = parent_2 {
-                        let parent_3 = ctx.nodes().parent_node(parent_2.id());
-                        if let Some(parent_3) = parent_3 {
-                            if let AstKind::Class(c) = parent_3.kind() {
-                                if let Some(super_class) = &c.super_class {
-                                    return !matches!(super_class, Expression::NullLiteral(_));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+    fn is_wanted_node(node: &AstNode, ctx: &LintContext<'_>) -> Option<bool> {
+        let parent = ctx.nodes().parent_node(node.id())?;
+        let method_def = parent.kind().as_method_definition()?;
+
+        if matches!(method_def.kind, MethodDefinitionKind::Constructor) {
+            let parent_2 = ctx.nodes().parent_node(parent.id())?;
+            let parent_3 = ctx.nodes().parent_node(parent_2.id())?;
+
+            let class = parent_3.kind().as_class()?;
+            let super_class = class.super_class.as_ref()?;
+            return Some(!matches!(super_class, Expression::NullLiteral(_)));
         }
 
-        false
+        Some(false)
     }
 
     fn analyze(
         cfg: &ControlFlowGraph,
-        id: BasicBlockId,
-        basic_blocks_with_super_called: &HashSet<BasicBlockId>,
-        basic_blocks_with_local_violations: &HashMap<BasicBlockId, Vec<AstNodeId>>,
+        id: BlockNodeId,
+        basic_blocks_with_super_called: &FxHashSet<BlockNodeId>,
+        basic_blocks_with_local_violations: &FxHashMap<BlockNodeId, Vec<NodeId>>,
         follow_join: bool,
     ) -> Vec<DefinitelyCallsThisBeforeSuper> {
         neighbors_filtered_by_edge_weight(
@@ -217,8 +211,8 @@ impl NoThisBeforeSuper {
     fn check_for_violation(
         cfg: &ControlFlowGraph,
         output: Vec<DefinitelyCallsThisBeforeSuper>,
-        basic_blocks_with_super_called: &HashSet<BasicBlockId>,
-        basic_blocks_with_local_violations: &HashMap<BasicBlockId, Vec<AstNodeId>>,
+        basic_blocks_with_super_called: &FxHashSet<BlockNodeId>,
+        basic_blocks_with_local_violations: &FxHashMap<BlockNodeId, Vec<NodeId>>,
     ) -> bool {
         // Deciding whether we definitely call this before super in all
         // codepaths is as simple as seeing if any individual codepath

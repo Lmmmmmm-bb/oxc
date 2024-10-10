@@ -1,3 +1,4 @@
+use cow_utils::CowUtils;
 use oxc_allocator::Box;
 use oxc_ast::ast::*;
 use oxc_diagnostics::Result;
@@ -337,25 +338,24 @@ impl<'a> ParserImpl<'a> {
 
     pub(crate) fn parse_literal_regexp(&mut self) -> Result<RegExpLiteral<'a>> {
         let span = self.start_span();
-
         // split out pattern
         let (pattern_end, flags) = self.read_regex()?;
-        let pattern_start = self.cur_token().start + 1; // +1 to exclude `/`
+        let pattern_start = self.cur_token().start + 1; // +1 to exclude left `/`
         let pattern_text = &self.source_text[pattern_start as usize..pattern_end as usize];
+        let flags_start = pattern_end + 1; // +1 to include right `/`
+        let flags_text = &self.source_text[flags_start as usize..self.cur_token().end as usize];
         self.bump_any();
-
         let pattern = self
             .options
             .parse_regular_expression
             .then_some(())
-            .map(|()| self.parse_regex_pattern(pattern_start, pattern_text, flags))
+            .map(|()| self.parse_regex_pattern(pattern_start, pattern_text, flags_text))
             .map_or_else(
                 || RegExpPattern::Raw(pattern_text),
                 |pat| {
                     pat.map_or_else(|| RegExpPattern::Invalid(pattern_text), RegExpPattern::Pattern)
                 },
             );
-
         Ok(self.ast.reg_exp_literal(self.end_span(span), EmptyObject, RegExp { pattern, flags }))
     }
 
@@ -363,15 +363,11 @@ impl<'a> ParserImpl<'a> {
         &mut self,
         span_offset: u32,
         pattern: &'a str,
-        flags: RegExpFlags,
+        flags: &'a str,
     ) -> Option<Box<'a, Pattern<'a>>> {
-        use oxc_regular_expression::{ParserOptions, PatternParser};
-        let options = ParserOptions {
-            span_offset,
-            unicode_mode: flags.contains(RegExpFlags::U) || flags.contains(RegExpFlags::V),
-            unicode_sets_mode: flags.contains(RegExpFlags::V),
-        };
-        match PatternParser::new(self.ast.allocator, pattern, options).parse() {
+        use oxc_regular_expression::{Parser, ParserOptions};
+        let options = ParserOptions::default().with_span_offset(span_offset).with_flags(flags);
+        match Parser::new(self.ast.allocator, pattern, options).parse() {
             Ok(regular_expression) => Some(self.ast.alloc(regular_expression)),
             Err(diagnostic) => {
                 self.error(diagnostic);
@@ -470,7 +466,7 @@ impl<'a> ParserImpl<'a> {
             }
             _ => unreachable!("parse_template_literal"),
         }
-        Ok(TemplateLiteral { span: self.end_span(span), quasis, expressions })
+        Ok(self.ast.template_literal(self.end_span(span), quasis, expressions))
     }
 
     pub(crate) fn parse_template_literal_expression(
@@ -517,7 +513,7 @@ impl<'a> ParserImpl<'a> {
         let cur_src = self.cur_src();
         let raw = &cur_src[1..cur_src.len() - end_offset as usize];
         let raw = Atom::from(if cooked.is_some() && raw.contains('\r') {
-            self.ast.str(raw.replace("\r\n", "\n").replace('\r', "\n").as_str())
+            self.ast.str(&raw.cow_replace("\r\n", "\n").cow_replace('\r', "\n"))
         } else {
             raw
         });
@@ -548,7 +544,10 @@ impl<'a> ParserImpl<'a> {
     ) -> Result<Expression<'a>> {
         self.bump_any(); // bump `.`
         let property = match self.cur_kind() {
-            Kind::Meta => self.parse_keyword_identifier(Kind::Meta),
+            Kind::Meta => {
+                self.set_source_type_to_module_if_unambiguous();
+                self.parse_keyword_identifier(Kind::Meta)
+            }
             Kind::Target => self.parse_keyword_identifier(Kind::Target),
             _ => self.parse_identifier_name()?,
         };

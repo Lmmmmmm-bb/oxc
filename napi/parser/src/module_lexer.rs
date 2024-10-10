@@ -1,6 +1,7 @@
 use napi::{bindgen_prelude::AsyncTask, Task};
 use napi_derive::napi;
-use oxc_allocator::Allocator;
+
+use oxc::allocator::Allocator;
 use oxc_module_lexer::ImportType;
 
 use crate::{parse, ParserOptions};
@@ -140,8 +141,8 @@ pub struct ResolveTask {
 
 #[napi]
 impl Task for ResolveTask {
-    type Output = ModuleLexer;
     type JsValue = ModuleLexer;
+    type Output = ModuleLexer;
 
     fn compute(&mut self) -> napi::Result<Self::Output> {
         Ok(module_lexer(&self.source_text, &self.options))

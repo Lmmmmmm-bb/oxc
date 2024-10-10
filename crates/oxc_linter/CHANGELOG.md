@@ -4,6 +4,296 @@ All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
 
+## [0.9.10] - 2024-10-07
+
+- 5a73a66 regular_expression: [**BREAKING**] Simplify public APIs (#6262) (leaysgur)
+
+### Features
+
+- 376cc09 linter: Implement `no-throw-literal` (#6144) (dalaoshu)
+- 5957214 linter: Allow fixing in files with source offsets (#6197) (camchenry)
+- a089e19 linter: Eslint/no-else-return (#4305) (yoho)
+- 183739f linter: Implement prefer-await-to-callbacks (#6153) (dalaoshu)
+- ae539af linter: Implement no-return-assign (#6108) (Radu Baston)
+
+### Bug Fixes
+
+- 9e9808b linter: Fix regression when parsing ts in vue files (#6336) (Boshen)
+- 93c6db6 linter: Improve docs and diagnostics message for no-else-return (#6327) (DonIsaac)
+- e0a3378 linter: Correct false positive in `unicorn/prefer-string-replace-all` (#6263) (H11)
+- ea28ee9 linter: Improve the fixer of `prefer-namespace-keyword` (#6230) (dalaoshu)
+- f6a3450 linter: Get correct source offsets for astro files (#6196) (camchenry)
+- be0030c linter: Allow whitespace control characters in `no-control-regex` (#6140) (camchenry)
+- e7e8ead linter: False positive in `no-return-assign` (#6128) (DonIsaac)
+
+### Performance
+
+- ac0a82a linter: Reuse allocator when there are multiple source texts (#6337) (Boshen)
+- 50a0029 linter: Do not concat vec in `no-useless-length-check` (#6276) (camchenry)
+
+### Documentation
+
+- 7ca70dd linter: Add docs for `ContextHost` and `LintContext` (#6272) (camchenry)
+- a949ecb linter: Improve docs for `eslint/getter-return` (#6229) (DonIsaac)
+- 14ba263 linter: Improve docs for `eslint-plugin-import` rules (#6131) (dalaoshu)
+
+### Refactor
+
+- 642725c linter: Rename vars from `ast_node_id` to `node_id` (#6305) (overlookmotel)
+- 8413175 linter: Move shared function from utils to rule (#6127) (dalaoshu)
+- ba9c372 linter: Make jest/vitest rule mapping more clear (#6273) (camchenry)
+- 82b8f21 linter: Add schemars and serde traits to AllowWarnDeny and RuleCategories (#6119) (DonIsaac)
+- ea908f7 linter: Consolidate file loading logic (#6130) (DonIsaac)
+- db751f0 linter: Use regexp AST visitor in `no-control-regex` (#6129) (camchenry)
+- 3aa7e42 linter: Use RegExp AST visitor for `no-hex-escape` (#6117) (camchenry)
+- 9d5b44a linter: Use regex visitor in `no-regex-spaces` (#6063) (camchenry)
+- 0d44cf7 linter: Use regex visitor in `no-useless-escape` (#6062) (camchenry)
+- eeb8873 linter: Use regex visitor in `no-empty-character-class` (#6058) (camchenry)
+
+### Testing
+
+- d883562 linter: Invalid `eslint/no-unused-vars` options (#6228) (DonIsaac)
+
+## [0.9.9] - 2024-09-27
+
+### Bug Fixes
+
+- bd8f786 linter: Rule and generic filters do not re-configure existing rules (#6087) (DonIsaac)
+- c5cdb4c linter: Disable all rules in a plugin when that plugin gets turned off (#6086) (DonIsaac)
+- 6c855af linter: Only write fix results if source code has changed (#6096) (DonIsaac)
+- 8759528 linter: Category filters not re-configuring already-enabled rules (#6085) (DonIsaac)
+- c2616f7 linter: Fix panic in fixer for `oxc/only-used-in-recursion` (#6070) (camc314)
+- 3da3845 linter: Malformed snippets in `eslint/for-direction` docs (#6060) (DonIsaac)
+- c047d42 linter: `no-useless-escape`: do not crash on backslash character (#6048) (camchenry)
+- 6f76ebe linter: Ignore invalid or partial disable directives (#6045) (camchenry)
+- 09a24cd linter: Fix false positives for generics in `no-unexpected-multiline` (#6039) (camchenry)
+- d05fd20 linter: Newline in type parameters causing false positive in `no-unexpected-multiline` (#6031) (DonIsaac)
+
+### Performance
+
+- f8464a3 linter: `no-magic-numbers` remove redudant checks in `is_array_index` (#6033) (Alexander S.)
+- c16ae60 linter: `jest/prefer-hooks-in-order`: rewrite rule to allocate less and iterate fewer times (#6030) (camchenry)
+
+### Documentation
+
+- a4fdf1b linter: Improve docs for promise rules (#6051) (dalaoshu)
+- 21cdb78 linter: Fix incorrect "bad" example in `only-used-in-recursion` (#6029) (Boshen)
+
+### Refactor
+
+- 1f92d61 linter: `jest/prefer-hooks-in-order`: improve diagnostic messages (#6036) (camchenry)
+
+### Testing
+
+- 55949eb linter: Add `OxlintRules::override_rules` tests (#6081) (DonIsaac)
+- 1a6923a linter: Add filter parsing test cases (#6080) (DonIsaac)
+- 58d333a linter: Add more test cases for disable directives (#6047) (camchenry)
+
+## [0.9.8] - 2024-09-24
+
+### Bug Fixes
+
+- e3c8a12 linter: Fix panic in sort-keys (#6017) (Boshen)
+- 4771492 linter: Fix `import/no_cycle` with `ignoreTypes` (#5995) (Boshen)
+
+### Performance
+
+- 5ae3f36 linter: `no-fallthrough`: Use string matching instead of Regex for default comment pattern (#6008) (camchenry)
+- 2b17003 linter, prettier, diagnostics: Use `FxHashMap` instead of `std::collections::HashMap` (#5993) (camchenry)
+
+## [0.9.7] - 2024-09-23
+
+### Features
+
+- d24985e linter: Add `oxc-security/api-keys` (#5906) (DonIsaac)
+- f9b44c5 linter: Add unicode sets support to `no-useless-escape` rule (#5974) (camchenry)
+- 0f19848 linter: Implement `no-unexpected-multiline` rule (#5911) (camchenry)
+- 16fe383 linter: Implement `no-extend-native` rule (#5867) (Cam McHenry)
+
+### Bug Fixes
+
+- eed9ac7 linter: Include actual span size in `no-regex-spaces` diagnostic (#5957) (camchenry)
+- 40c89c2 linter: Move `promise/avoid-new` to style category (#5961) (DonIsaac)
+
+### Performance
+
+- 608d637 linter: Use `aho-corasick` instead of `regex` for string matching in `jsx-a11y/img-redundant-alt` (#5892) (camchenry)
+- 3148d4b linter: Check file path after checking node kind for `nextjs/no-head-element` (#5868) (Cam McHenry)
+
+### Refactor
+
+- 0a5a4a9 linter: Use parsed patterns for `unicorn/no-hex-escape` (#5985) (camchenry)
+- 2cf2edd linter: Use parsed patterns in `no-empty-character-class` rule (#5980) (camchenry)
+- a9a8e2a linter: Use regex parser in `eslint/no-regex-spaces` (#5952) (camchenry)
+- 05f592b linter: Use parsed patterns in `unicorn/prefer-string-starts-ends-with` (#5949) (camchenry)
+- 3273b64 linter: Use parsed patterns for `unicorn/prefer-string-replace-all` rule (#5943) (camchenry)
+- ba7b01f linter: Add `LinterBuilder` (#5714) (DonIsaac)
+- db4f16a semantic: Call `with_trivias` before `build_with_jsdoc` (#5875) (Boshen)
+- 3d13c6d semantic: Impl `IntoIterator` for `&AstNodes` (#5873) (DonIsaac)
+
+### Testing
+
+- b681c9a linter: Import test cases for `no-empty-character-class` (#5981) (camchenry)
+- 767602b linter: Add regression test for #5227 (#5975) (camchenry)
+
+## [0.9.6] - 2024-09-18
+
+### Features
+
+- 3bf7b24 linter: Make `typescript/no-duplicate-enum-values` a `correctness` rule (#5810) (DonIsaac)
+- 7799c06 linter/react: Implement `no-danger-with-children` rule (#5420) (Cam McHenry)
+
+### Bug Fixes
+
+- f942485 linter: Remove all* remaining "Disallow <foo>" messages (#5812) (DonIsaac)
+- b5ad518 linter: Improve diagnostic messages for various lint rules (#5808) (DonIsaac)
+- 858f7af linter: Plugin prefix name for eslint-plugin-node (#5807) (DonIsaac)
+- 737ba1d linter: Fix some cases on ```AssignmentExpression``` for ```unicorn/consistent-function-scoping``` (#5675) (Arian94)
+- 148c7a8 linter: Replace bitwise AND (&) with logical AND (&&) in explici… (#5780) (kaykdm)
+- b4ed564 linter/no-unused-vars: Writes to members triggering false positive (#5744) (Dunqing)
+- e9c084a linter/no-unused-vars: False positive when a variable used as a computed member property (#5722) (Dunqing)
+
+### Performance
+
+- 3725d5d linter: Make all rules share a diagnostics vec (#5806) (DonIsaac)
+- e978567 linter: Shrink size of `DisableDirectives` (#5798) (DonIsaac)
+- 1bfa515 linter: Remove redundant clone of diagnostics in context (#5797) (DonIsaac)
+- e413cad linter: Move shared context info to `ContextHost` (#5795) (DonIsaac)
+
+### Refactor
+
+- 6dd6f7c ast: Change `Comment` struct (#5783) (Boshen)
+- 7caae5b codegen: Add `GetSpan` requirement to `Gen` trait (#5772) (Boshen)
+- 026ee6a linter: Decouple module resolution from import plugin (#5829) (dalaoshu)
+- 50834bc linter: Move `override_rule` to `OxlintRules` (#5708) (DonIsaac)
+- a438743 linter: Move `OxlintConfig` to `Oxlintrc` (#5707) (DonIsaac)
+- f61e8b5 linter: Impl serde and schemars traits for `LintPlugins` (#5706) (DonIsaac)
+- 20a7861 linter: Shorten `Option` syntax (#5735) (overlookmotel)
+- d8b612c oxc_linter: Prefer pass Enum instead of str `no_plus_plus` (#5730) (IWANABETHATGUY)
+- cc0408b semantic: S/AstNodeId/NodeId (#5740) (Boshen)
+
+## [0.9.5] - 2024-09-12
+
+### Features
+
+- 4b04f65 linter: Implement `no-plusplus` rule (#5570) (Cam McHenry)
+
+## [0.9.4] - 2024-09-12
+
+- 1fa3e56 semantic: [**BREAKING**] Rename `SymbolTable::iter` to `symbol_ids` (#5621) (overlookmotel)
+
+- 4a8aec1 span: [**BREAKING**] Change `SourceType::js` to `SourceType::cjs` and `SourceType::mjs` (#5606) (Boshen)
+
+### Features
+
+- 9ca2593 linter: Eslint/sort-keys  (#4845) (Na'aman Hirschfeld)
+- 023c160 linter: Impl `Serialize` for `OxlintConfig` (#5594) (DonIsaac)
+- 24d6a47 linter: Implement `eslint/no-invalid-regexp` (#5443) (Boshen)
+- c6bbf94 minifier: Constant fold unary expression (#5669) (Boshen)
+
+### Bug Fixes
+
+- af6d240 linter: Panic in consistent-function-scoping (#5613) (DonIsaac)
+- 54e2e76 linter: `react/no_set_state` + `react/no_string_refs` rules find correct parent (#5615) (overlookmotel)
+- 3b87ac4 linter: Fix no_unused_vars panic when encountering unicode (#5582) (Boshen)
+
+### Performance
+
+- bfe9186 linter: Use `cow_replace` instead of `replace` (#5643) (dalaoshu)
+- e3ae5db linter: Use cow_to_ascii_lowercase/uppercase (#5637) (heygsc)
+- a0370bf linter: Use cow_utils in no_script_url (#5633) (heygsc)
+- 37e922c linter: `eslint/no_shadow_restricted_names` use `run_on_symbol` (#5618) (overlookmotel)
+- 0b7fccf linter: `react/no_set_state` + `react/no_string_refs` rules reduce iteration over ancestors (#5616) (overlookmotel)
+- 2c3f3fe linter: Make `jsx_key` slightly faster (#5585) (Boshen)
+- cd81d12 linter: Add `should_run` to check path only once to nextjs/no_typos (#5584) (Boshen)
+- d18c896 rust: Use `cow_utils` instead (#5664) (dalaoshu)
+
+### Documentation
+
+- 64f9575 linter: Add plugin usage to example with configuration (Boshen)
+- 8c9179d linter: Fix typos (#5591) (Brian Donovan)
+
+### Refactor
+
+- 9e9435f linter: Add `LintFilter` (#5685) (DonIsaac)
+- 4f70fe5 linter: Start internal/external split of LintPluginOptions (#5660) (DonIsaac)
+- 5ae9b48 linter: Start internal/external split of `OxlintOptions` (#5659) (DonIsaac)
+- c8bc6f0 linter: Use `std::ptr::eq` (#5649) (overlookmotel)
+- a37c064 linter: Use `ContentHash` for `no_duplicate_case`; remove `calculate_hash` (#5648) (Boshen)
+- 0b3c1d7 linter: Start internal/external split of `OxlintConfig` (#5595) (DonIsaac)
+- 89bdf55 linter: Inline `Rule` trait default methods (#5619) (overlookmotel)
+- afea8d5 linter: Rename `Rule` trait method params (#5617) (overlookmotel)
+- 4e748b5 linter: Replace ast "compare by hash" to "compare by content" (#5602) (dalaoshu)
+- bac03e3 linter: Make fields of `LintServiceOptions` private (#5593) (DonIsaac)
+- 2661d8b linter: Jest prefer_strict_equal (#5588) (IWANABETHATGUY)
+- 067f9b5 semantic: Introduce `IsGlobalReference` trait (#5672) (Boshen)- 26d9235 Enable clippy::ref_as_ptr  (#5577) (夕舞八弦)
+
+### Testing
+
+- 8e79f8d linter: Add class method test cases for `oxc/no-async-await` (#5550) (DonIsaac)
+- 3835189 linter: Add test case for no_unused_vars in 3b87ac4 (Boshen)
+- 5f27551 linter: Add a passing case to no_undef (#5580) (Boshen)
+
+## [0.9.3] - 2024-09-07
+
+- b060525 semantic: [**BREAKING**] Remove `source_type` argument from `SemanticBuilder::new` (#5553) (Boshen)
+
+- cba93f5 ast: [**BREAKING**] Add `ThisExpression` variants to `JSXElementName` and `JSXMemberExpressionObject` (#5466) (overlookmotel)
+
+- 87c5df2 ast: [**BREAKING**] Rename `Expression::without_parentheses` (#5448) (overlookmotel)
+
+- 1aa49af ast: [**BREAKING**] Remove `JSXMemberExpressionObject::Identifier` variant (#5358) (Dunqing)
+
+### Features
+
+- 90facd3 ast: Add `ContentHash` trait; remove noop `Hash` implementation from `Span` (#5451) (rzvxa)
+- 59abf27 ast, parser: Add `oxc_regular_expression` types to the parser and AST. (#5256) (rzvxa)
+- be3a432 linter: Implement typescript/no-magic-numbers (#4745) (Alexander S.)
+- 09aa86d linter/eslint: Implement `sort-vars` rule (#5430) (Jelle van der Waa)
+- 2ec2f7d linter/eslint: Implement no-alert (#5535) (Edwin Lim)
+- a786acf linter/import: Add no-dynamic-require rule (#5389) (Jelle van der Waa)
+- 4473779 linter/node: Implement no-exports-assign (#5370) (dalaoshu)
+- b846432 linter/oxc: Add fixer for `erasing-op` (#5377) (camc314)
+- aff2c71 linter/react: Implement `self-closing-comp` (#5415) (Jelle van der Waa)
+
+### Bug Fixes
+
+- 0df1d9d ast, codegen, linter: Panics in fixers. (#5431) (rzvxa)
+- cdd1a91 linter: Typescript/no-magic-numbers: remove double minus for reporting negative bigint numbers (#5565) (Alexander S.)
+- ff88c1f linter: Don't mark binding rest elements as unused in TS function overloads (#5470) (Cam McHenry)
+- 088733b linter: Handle loops in `getter-return` rule (#5517) (Cam McHenry)
+- 82c0a16 linter: `tree_shaking/no_side_effects_in_initialization` handle JSX correctly (#5450) (overlookmotel)
+- 6285a02 linter: `eslint/radix` rule correctly check for unbound symbols (#5446) (overlookmotel)
+- c8ab353 linter/tree-shaking: Align JSXMemberExpression's report (#5548) (mysteryven)
+- 5187f38 linter/tree-shaking: Detect the correct export symbol resolution (#5467) (mysteryven)
+
+### Performance
+
+- 8170954 linter/react: Add should_run conditions for react rules (#5402) (Jelle van der Waa)
+
+### Documentation
+
+- a540215 linter: Update docs `Examples` for linter rules (#5513) (dalaoshu)
+- 7414190 linter: Update docs `Example` for linter rules (#5479) (heygsc)
+
+### Refactor
+
+- 0ac420d linter: Use meaningful names for diagnostic parameters (#5564) (Don Isaac)
+- 81a394d linter: Deduplicate code in `oxc/no-async-await` (#5549) (DonIsaac)
+- 979c16c linter: Reduce nested if statements in eslint/no_this_before_super (#5485) (IWANABETHATGUY)
+- 1d3e973 linter: Simplify `eslint/radix` rule (#5445) (overlookmotel)
+- fdb8857 linter: Use "parsed pattern" in `no_div_regex` rule. (#5417) (rzvxa)
+- 2ccbd93 linter: `react/jsx_no_undef` rule `get_member_ident` do not return Option (#5411) (overlookmotel)
+
+### Styling
+
+- 2a43fa4 linter: Introduce the writing style from PR #5491 and reduce the if nesting (#5512) (dalaoshu)- d8b29e7 Add trailing line breaks to JSON files (#5544) (overlookmotel)- 694f032 Add trailing line breaks to `package.json` files (#5542) (overlookmotel)
+
+### Testing
+
+- 340b535 linter/no-unused-vars: Arrow functions in tagged templates (#5510) (Don Isaac)
+- af69393 linter/no-useless-spread: Ensure spreads on identifiers pass (#5561) (DonIsaac)- dc92489 Add trailing line breaks to conformance fixtures (#5541) (overlookmotel)
+
 ## [0.9.2] - 2024-09-02
 
 - 32f7300 ast: [**BREAKING**] Add `JSXElementName::IdentifierReference` and `JSXMemberExpressionObject::IdentifierReference` (#5223) (Dunqing)

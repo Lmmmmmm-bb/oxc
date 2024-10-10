@@ -9,6 +9,7 @@
     clippy::undocumented_unsafe_blocks,
     clippy::semicolon_if_nothing_returned,
     clippy::ptr_as_ptr,
+    clippy::ref_as_ptr,
     clippy::borrow_as_ptr,
     clippy::cast_ptr_alignment
 )]
@@ -2784,10 +2785,10 @@ pub(crate) unsafe fn walk_import_declaration<'a, Tr: Traverse<'a>>(
     );
     if let Some(field) = &mut *((node as *mut u8)
         .add(ancestor::OFFSET_IMPORT_DECLARATION_WITH_CLAUSE)
-        as *mut Option<WithClause>)
+        as *mut Option<Box<WithClause>>)
     {
         ctx.retag_stack(AncestorType::ImportDeclarationWithClause);
-        walk_with_clause(traverser, field as *mut _, ctx);
+        walk_with_clause(traverser, (&mut **field) as *mut _, ctx);
     }
     ctx.pop_stack(pop_token);
     traverser.exit_import_declaration(&mut *node, ctx);
@@ -2973,10 +2974,10 @@ pub(crate) unsafe fn walk_export_named_declaration<'a, Tr: Traverse<'a>>(
     }
     if let Some(field) = &mut *((node as *mut u8)
         .add(ancestor::OFFSET_EXPORT_NAMED_DECLARATION_WITH_CLAUSE)
-        as *mut Option<WithClause>)
+        as *mut Option<Box<WithClause>>)
     {
         ctx.retag_stack(AncestorType::ExportNamedDeclarationWithClause);
-        walk_with_clause(traverser, field as *mut _, ctx);
+        walk_with_clause(traverser, (&mut **field) as *mut _, ctx);
     }
     ctx.pop_stack(pop_token);
     traverser.exit_export_named_declaration(&mut *node, ctx);
@@ -3031,10 +3032,10 @@ pub(crate) unsafe fn walk_export_all_declaration<'a, Tr: Traverse<'a>>(
     );
     if let Some(field) = &mut *((node as *mut u8)
         .add(ancestor::OFFSET_EXPORT_ALL_DECLARATION_WITH_CLAUSE)
-        as *mut Option<WithClause>)
+        as *mut Option<Box<WithClause>>)
     {
         ctx.retag_stack(AncestorType::ExportAllDeclarationWithClause);
-        walk_with_clause(traverser, field as *mut _, ctx);
+        walk_with_clause(traverser, (&mut **field) as *mut _, ctx);
     }
     ctx.pop_stack(pop_token);
     traverser.exit_export_all_declaration(&mut *node, ctx);
@@ -3268,6 +3269,9 @@ pub(crate) unsafe fn walk_jsx_element_name<'a, Tr: Traverse<'a>>(
         JSXElementName::MemberExpression(node) => {
             walk_jsx_member_expression(traverser, (&mut **node) as *mut _, ctx)
         }
+        JSXElementName::ThisExpression(node) => {
+            walk_this_expression(traverser, (&mut **node) as *mut _, ctx)
+        }
     }
     traverser.exit_jsx_element_name(&mut *node, ctx);
 }
@@ -3334,6 +3338,9 @@ pub(crate) unsafe fn walk_jsx_member_expression_object<'a, Tr: Traverse<'a>>(
         }
         JSXMemberExpressionObject::MemberExpression(node) => {
             walk_jsx_member_expression(traverser, (&mut **node) as *mut _, ctx)
+        }
+        JSXMemberExpressionObject::ThisExpression(node) => {
+            walk_this_expression(traverser, (&mut **node) as *mut _, ctx)
         }
     }
     traverser.exit_jsx_member_expression_object(&mut *node, ctx);
@@ -3639,19 +3646,13 @@ pub(crate) unsafe fn walk_ts_this_parameter<'a, Tr: Traverse<'a>>(
     ctx: &mut TraverseCtx<'a>,
 ) {
     traverser.enter_ts_this_parameter(&mut *node, ctx);
-    let pop_token = ctx.push_stack(Ancestor::TSThisParameterThis(
-        ancestor::TSThisParameterWithoutThis(node, PhantomData),
+    let pop_token = ctx.push_stack(Ancestor::TSThisParameterTypeAnnotation(
+        ancestor::TSThisParameterWithoutTypeAnnotation(node, PhantomData),
     ));
-    walk_identifier_name(
-        traverser,
-        (node as *mut u8).add(ancestor::OFFSET_TS_THIS_PARAMETER_THIS) as *mut IdentifierName,
-        ctx,
-    );
     if let Some(field) = &mut *((node as *mut u8)
         .add(ancestor::OFFSET_TS_THIS_PARAMETER_TYPE_ANNOTATION)
         as *mut Option<Box<TSTypeAnnotation>>)
     {
-        ctx.retag_stack(AncestorType::TSThisParameterTypeAnnotation);
         walk_ts_type_annotation(traverser, (&mut **field) as *mut _, ctx);
     }
     ctx.pop_stack(pop_token);
@@ -3963,13 +3964,6 @@ pub(crate) unsafe fn walk_ts_conditional_type<'a, Tr: Traverse<'a>>(
     ctx: &mut TraverseCtx<'a>,
 ) {
     traverser.enter_ts_conditional_type(&mut *node, ctx);
-    let previous_scope_id = ctx.current_scope_id();
-    ctx.set_current_scope_id(
-        (*((node as *mut u8).add(ancestor::OFFSET_TS_CONDITIONAL_TYPE_SCOPE_ID)
-            as *mut Cell<Option<ScopeId>>))
-            .get()
-            .unwrap(),
-    );
     let pop_token = ctx.push_stack(Ancestor::TSConditionalTypeCheckType(
         ancestor::TSConditionalTypeWithoutCheckType(node, PhantomData),
     ));
@@ -3977,6 +3971,13 @@ pub(crate) unsafe fn walk_ts_conditional_type<'a, Tr: Traverse<'a>>(
         traverser,
         (node as *mut u8).add(ancestor::OFFSET_TS_CONDITIONAL_TYPE_CHECK_TYPE) as *mut TSType,
         ctx,
+    );
+    let previous_scope_id = ctx.current_scope_id();
+    ctx.set_current_scope_id(
+        (*((node as *mut u8).add(ancestor::OFFSET_TS_CONDITIONAL_TYPE_SCOPE_ID)
+            as *mut Cell<Option<ScopeId>>))
+            .get()
+            .unwrap(),
     );
     ctx.retag_stack(AncestorType::TSConditionalTypeExtendsType);
     walk_ts_type(
@@ -3990,6 +3991,7 @@ pub(crate) unsafe fn walk_ts_conditional_type<'a, Tr: Traverse<'a>>(
         (node as *mut u8).add(ancestor::OFFSET_TS_CONDITIONAL_TYPE_TRUE_TYPE) as *mut TSType,
         ctx,
     );
+    ctx.set_current_scope_id(previous_scope_id);
     ctx.retag_stack(AncestorType::TSConditionalTypeFalseType);
     walk_ts_type(
         traverser,
@@ -3997,7 +3999,6 @@ pub(crate) unsafe fn walk_ts_conditional_type<'a, Tr: Traverse<'a>>(
         ctx,
     );
     ctx.pop_stack(pop_token);
-    ctx.set_current_scope_id(previous_scope_id);
     traverser.exit_ts_conditional_type(&mut *node, ctx);
 }
 
@@ -4986,7 +4987,7 @@ pub(crate) unsafe fn walk_ts_module_declaration_name<'a, Tr: Traverse<'a>>(
     traverser.enter_ts_module_declaration_name(&mut *node, ctx);
     match &mut *node {
         TSModuleDeclarationName::Identifier(node) => {
-            walk_identifier_name(traverser, node as *mut _, ctx)
+            walk_binding_identifier(traverser, node as *mut _, ctx)
         }
         TSModuleDeclarationName::StringLiteral(node) => {
             walk_string_literal(traverser, node as *mut _, ctx)
@@ -5138,10 +5139,10 @@ pub(crate) unsafe fn walk_ts_import_type<'a, Tr: Traverse<'a>>(
         walk_ts_type_name(traverser, field as *mut _, ctx);
     }
     if let Some(field) = &mut *((node as *mut u8).add(ancestor::OFFSET_TS_IMPORT_TYPE_ATTRIBUTES)
-        as *mut Option<TSImportAttributes>)
+        as *mut Option<Box<TSImportAttributes>>)
     {
         ctx.retag_stack(AncestorType::TSImportTypeAttributes);
-        walk_ts_import_attributes(traverser, field as *mut _, ctx);
+        walk_ts_import_attributes(traverser, (&mut **field) as *mut _, ctx);
     }
     if let Some(field) = &mut *((node as *mut u8)
         .add(ancestor::OFFSET_TS_IMPORT_TYPE_TYPE_PARAMETERS)

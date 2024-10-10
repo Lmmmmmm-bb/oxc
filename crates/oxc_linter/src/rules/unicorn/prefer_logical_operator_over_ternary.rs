@@ -25,19 +25,22 @@ declare_oxc_lint!(
     /// Using a logical operator is shorter and simpler than a ternary expression.
     ///
     /// ### Example
-    /// ```javascript
     ///
-    /// // Bad
+    /// Examples of **incorrect** code for this rule:
+    /// ```javascript
     /// const foo = bar ? bar : baz;
     /// console.log(foo ? foo : bar);
+    /// ```
     ///
-    /// // Good
+    /// Examples of **correct** code for this rule:
+    //  ```javascript
     /// const foo = bar || baz;
     /// console.log(foo ?? bar);
     ///
     /// ```
     PreferLogicalOperatorOverTernary,
-    style
+    style,
+    pending
 );
 
 impl Rule for PreferLogicalOperatorOverTernary {

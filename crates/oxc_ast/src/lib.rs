@@ -33,7 +33,6 @@ mod ast_builder_impl;
 mod ast_impl;
 mod ast_kind_impl;
 pub mod precedence;
-pub mod syntax_directed_operations;
 mod trivia;
 
 mod generated {
@@ -42,6 +41,8 @@ mod generated {
     pub mod ast_builder;
     pub mod ast_kind;
     pub mod derive_clone_in;
+    pub mod derive_content_eq;
+    pub mod derive_content_hash;
     pub mod derive_get_span;
     pub mod derive_get_span_mut;
     pub mod visit;
@@ -49,19 +50,17 @@ mod generated {
 }
 
 pub mod visit {
-    pub use crate::generated::visit::*;
-    pub use crate::generated::visit_mut::*;
+    pub use crate::generated::{visit::*, visit_mut::*};
 }
 
-pub use generated::ast_builder;
-pub use generated::ast_kind;
-
+pub use generated::{ast_builder, ast_kind};
 pub use num_bigint::BigUint;
 
 pub use crate::{
     ast_builder::AstBuilder,
+    ast_builder_impl::NONE,
     ast_kind::{AstKind, AstType},
-    trivia::{Comment, CommentKind, SortedComments, Trivias},
+    trivia::{Comment, CommentKind, CommentPosition, SortedComments, Trivias},
     visit::{Visit, VisitMut},
 };
 

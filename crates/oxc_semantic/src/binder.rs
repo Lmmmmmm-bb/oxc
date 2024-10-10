@@ -1,16 +1,17 @@
 //! Declare symbol for `BindingIdentifier`s
 
-use std::borrow::Cow;
+use std::{borrow::Cow, ptr};
 
 #[allow(clippy::wildcard_imports)]
-use oxc_ast::ast::*;
-use oxc_ast::{
-    syntax_directed_operations::{BoundNames, IsSimpleParameterList},
-    AstKind,
-};
+use oxc_ast::{ast::*, AstKind};
 use oxc_span::{GetSpan, SourceType};
+use oxc_syntax_operations::{BoundNames, IsSimpleParameterList};
 
-use crate::{scope::ScopeFlags, symbol::SymbolFlags, SemanticBuilder};
+use crate::{
+    scope::{ScopeFlags, ScopeId},
+    symbol::SymbolFlags,
+    SemanticBuilder,
+};
 
 pub(crate) trait Binder<'a> {
     #[allow(unused_variables)]
@@ -19,7 +20,7 @@ pub(crate) trait Binder<'a> {
 
 impl<'a> Binder<'a> for VariableDeclarator<'a> {
     fn bind(&self, builder: &mut SemanticBuilder<'a>) {
-        let (mut includes, excludes) = match self.kind {
+        let (includes, excludes) = match self.kind {
             VariableDeclarationKind::Const => (
                 SymbolFlags::BlockScopedVariable | SymbolFlags::ConstVariable,
                 SymbolFlags::BlockScopedVariableExcludes,
@@ -33,12 +34,6 @@ impl<'a> Binder<'a> for VariableDeclarator<'a> {
                 (SymbolFlags::FunctionScopedVariable, SymbolFlags::FunctionScopedVariableExcludes)
             }
         };
-
-        if self.init.as_ref().is_some_and(|init| {
-            matches!(init.get_inner_expression(), Expression::ArrowFunctionExpression(_))
-        }) {
-            includes |= SymbolFlags::ArrowFunction;
-        }
 
         if self.kind.is_lexical() {
             self.id.bound_names(&mut |ident| {
@@ -67,9 +62,9 @@ impl<'a> Binder<'a> for VariableDeclarator<'a> {
             let name = &ident.name;
             let mut declared_symbol_id = None;
 
-            for scope_id in &var_scope_ids {
+            for &scope_id in &var_scope_ids {
                 if let Some(symbol_id) =
-                    builder.check_redeclaration(*scope_id, span, name, excludes, true)
+                    builder.check_redeclaration(scope_id, span, name, excludes, true)
                 {
                     builder.add_redeclare_variable(symbol_id, span);
                     declared_symbol_id = Some(symbol_id);
@@ -77,7 +72,7 @@ impl<'a> Binder<'a> for VariableDeclarator<'a> {
                     let name = name.to_compact_str();
                     // remove current scope binding and add to target scope
                     // avoid same symbols appear in multi-scopes
-                    builder.scope.remove_binding(*scope_id, &name);
+                    builder.scope.remove_binding(scope_id, &name);
                     builder.scope.add_binding(target_scope_id, name, symbol_id);
                     builder.symbols.scope_ids[symbol_id] = target_scope_id;
                     break;
@@ -94,10 +89,10 @@ impl<'a> Binder<'a> for VariableDeclarator<'a> {
 
             // Finally, add the variable to all hoisted scopes
             // to support redeclaration checks when declaring variables with the same name later.
-            for scope_id in &var_scope_ids {
+            for &scope_id in &var_scope_ids {
                 builder
                     .hoisting_variables
-                    .entry(*scope_id)
+                    .entry(scope_id)
                     .or_default()
                     .insert(name.clone(), symbol_id);
             }
@@ -132,19 +127,42 @@ fn function_as_var(flags: ScopeFlags, source_type: SourceType) -> bool {
     flags.is_function() || (source_type.is_script() && flags.is_top())
 }
 
+/// Check for Annex B `if (foo) function a() {} else function b() {}`
+fn is_function_part_of_if_statement(function: &Function, builder: &SemanticBuilder) -> bool {
+    if builder.current_scope_flags().is_strict_mode() {
+        return false;
+    }
+    let Some(AstKind::IfStatement(stmt)) = builder.nodes.parent_kind(builder.current_node_id)
+    else {
+        return false;
+    };
+    if let Statement::FunctionDeclaration(func) = &stmt.consequent {
+        if ptr::eq(func.as_ref(), function) {
+            return true;
+        }
+    }
+    if let Some(Statement::FunctionDeclaration(func)) = &stmt.alternate {
+        if ptr::eq(func.as_ref(), function) {
+            return true;
+        }
+    }
+    false
+}
+
 impl<'a> Binder<'a> for Function<'a> {
     fn bind(&self, builder: &mut SemanticBuilder) {
         let current_scope_id = builder.current_scope_id;
         let scope_flags = builder.current_scope_flags();
         if let Some(ident) = &self.id {
-            if !scope_flags.is_strict_mode()
-                && matches!(
-                    builder.nodes.parent_kind(builder.current_node_id),
-                    Some(AstKind::IfStatement(_))
-                )
-            {
-                // Do not declare in if single statements,
-                // if (false) function f() {} else function g() { }
+            if is_function_part_of_if_statement(self, builder) {
+                let symbol_id = builder.symbols.create_symbol(
+                    ident.span,
+                    ident.name.clone().into(),
+                    SymbolFlags::Function,
+                    ScopeId::new(u32::MAX - 1), // Not bound to any scope.
+                    builder.current_node_id,
+                );
+                ident.symbol_id.set(Some(symbol_id));
             } else if self.r#type == FunctionType::FunctionDeclaration {
                 // The visitor is already inside the function scope,
                 // retrieve the parent scope for the function id to bind to.
@@ -390,15 +408,27 @@ impl<'a> Binder<'a> for TSEnumMember<'a> {
 
 impl<'a> Binder<'a> for TSModuleDeclaration<'a> {
     fn bind(&self, builder: &mut SemanticBuilder) {
+        // do not bind `global` for `declare global { ... }`
+        if matches!(self.kind, TSModuleDeclarationKind::Global) {
+            return;
+        }
+
         // At declaration time a module has no value declaration it is only when a value declaration
         // is made inside a the scope of a module that the symbol is modified
         let ambient = if self.declare { SymbolFlags::Ambient } else { SymbolFlags::None };
-        builder.declare_symbol(
+        let symbol_id = builder.declare_symbol(
             self.id.span(),
             self.id.name().as_str(),
             SymbolFlags::NameSpaceModule | ambient,
             SymbolFlags::None,
         );
+
+        // do not bind `global` for `declare global { ... }`
+        if !self.kind.is_global() {
+            if let TSModuleDeclarationName::Identifier(id) = &self.id {
+                id.symbol_id.set(Some(symbol_id));
+            }
+        }
     }
 }
 

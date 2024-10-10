@@ -4,6 +4,133 @@ All notable changes to this package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
 
+## [0.31.0] - 2024-10-08
+
+- 020bb80 codegen: [**BREAKING**] Change to `CodegenReturn::code` and `CodegenReturn::map` (#6310) (Boshen)
+
+- 82ab689 transformer,minifier: [**BREAKING**] Move define and inject plugin from minifier to transformer (#6199) (Boshen)
+
+### Features
+
+- e304e8c minifier: Minify exponential arithmetic operation. (#6281) (7086cmd)
+- f9ae70c minifier: Minify basic arithmetic calculations. (#6280) (7086cmd)
+- 4008afe minifier: Fold array and object constructors (#6257) (camchenry)
+- 115ccc9 minifier: Bitwise not in exceeded value. (#6235) (7086cmd)
+- ee6c850 minifier: Scaffold peephole replace known methods. (#6245) (7086cmd)
+- c32af57 minifier: Fold demical bitwise not for bigint. (#6233) (7086cmd)
+- 23b6464 minifier: Fold true / false comparison. (#6225) (7086cmd)
+- 585ccda minifier: Support subtraction assignment. (#6214) (7086cmd)
+- cca0034 minifier: Handle positive `NaN` and `Infinity`. (#6207) (7086cmd)
+- dac8f09 minifier: Minify unary plus negation. (#6203) (7086cmd)
+- 3b79e1b minifier: Evaluate bigint in fold constant (#6178) (Boshen)
+- 9e62396 syntax_operations: Add crate `oxc_syntax_operations` (#6202) (Boshen)
+
+### Bug Fixes
+
+- d953a6b minifier: Correct the reference link (#6283) (dalaoshu)
+- 37cbabb minifier: Should not handle the strict operation for bool comparison. (#6261) (7086cmd)
+- e29c067 minifier: Handle exceeded shifts. (#6237) (7086cmd)
+
+### Refactor
+
+- ac5a23f minifier: Use ctx.ast.vec instead of Vec::new. (#6331) (7086cmd)
+- 1cee207 minifier: Some boilerplate work for PeepholeFoldConstants (#6054) (Boshen)
+
+### Testing
+
+- 964d71e minifier: Add arithmetic tests for fold constants. (#6269) (7086cmd)
+- fcb4651 minifier: Enable null comparison with bigint. (#6252) (7086cmd)
+
+## [0.30.2] - 2024-09-27
+
+### Features
+
+- 60c52ba ast: Allow passing span to `void_0` method (#6065) (Dunqing)
+
+### Bug Fixes
+
+- e0a8959 minifier: Compute `void number` as `undefined` (#6028) (Boshen)
+
+## [0.30.1] - 2024-09-24
+
+### Features
+
+- 5c323a2 minifier: Loop compressor passes (#6013) (Boshen)
+
+### Refactor
+
+- 0a2f687 minifier: Move dce conditional expression to `RemoveDeadCode` (#5971) (Boshen)
+
+## [0.30.0] - 2024-09-23
+
+### Features
+
+- 9076dee minifier: Implement part of `StatementFusion` (#5936) (Boshen)
+
+### Bug Fixes
+
+- 362c427 mangler,codegen: Do not mangle top level symbols (#5965) (Boshen)
+
+### Refactor
+
+- 943bd76 minifier: Move tests to their src files (#5912) (Boshen)
+- cbaeea6 minifier: Clean up some tests (#5910) (Boshen)
+- 144611e minifier: Align ast pass names with closure compiler (#5908) (Boshen)
+
+## [0.29.0] - 2024-09-13
+
+### Features
+
+- 953fe17 ast: Provide `NONE` type for AST builder calls (#5737) (overlookmotel)
+- e968e9f minifier: Constant fold nullish coalescing operator (#5761) (Boshen)
+- 6bc13f6 minifier: Add `MinimizeConditions` pass (#5747) (Boshen)
+
+### Bug Fixes
+
+- 8ff013a minifier: Handle dce CallExpression::callee (#5752) (Boshen)
+
+### Performance
+
+- d18c896 rust: Use `cow_utils` instead (#5664) (dalaoshu)
+
+### Refactor
+
+- 2890c98 minifier: Add tests for `remove_syntax` (#5749) (Boshen)
+- 9a9d8f6 minifier: Replace `self.ast` with `ctx.ast` (#5748) (Boshen)
+- 746f7b3 minifier: Align code with closure compiler (#5717) (Boshen)
+- 21e2df5 minifier: Replace `VisitMut` with `Traverse` for inject and define plugins (#5705) (Boshen)
+
+## [0.28.0] - 2024-09-11
+
+- ee4fb42 ast: [**BREAKING**] Reduce size of `WithClause` by `Box`ing it (#5677) (Boshen)
+
+- 4a8aec1 span: [**BREAKING**] Change `SourceType::js` to `SourceType::cjs` and `SourceType::mjs` (#5606) (Boshen)
+
+- b060525 semantic: [**BREAKING**] Remove `source_type` argument from `SemanticBuilder::new` (#5553) (Boshen)
+
+### Features
+
+- 68c3cf5 minifier: Fold `void 1` -> `void 0` (#5670) (Boshen)
+- c6bbf94 minifier: Constant fold unary expression (#5669) (Boshen)
+- 86256ea minifier: Constant fold `typeof` (#5666) (Boshen)
+
+### Bug Fixes
+
+- b8f8dd6 minifier/replace_global_defines: Do not replace shadowed identifiers (#5691) (Boshen)
+
+### Performance
+
+
+### Refactor
+
+- 067f9b5 semantic: Introduce `IsGlobalReference` trait (#5672) (Boshen)
+
+## [0.27.0] - 2024-09-06
+
+### Features
+
+- ba4b68c minifier: Remove parenthesized expression for dce (#5439) (Boshen)
+
 ## [0.25.0] - 2024-08-23
 
 - 78f135d ast: [**BREAKING**] Remove `ReferenceFlag` from `IdentifierReference` (#5077) (Boshen)

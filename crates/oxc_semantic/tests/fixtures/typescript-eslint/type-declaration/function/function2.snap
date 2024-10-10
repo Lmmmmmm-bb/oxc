@@ -2,6 +2,10 @@
 source: crates/oxc_semantic/tests/main.rs
 input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaration/function/function2.ts
 ---
+================================================================================
+SCOPES
+================================================================================
+
 [
   {
     "children": [
@@ -24,7 +28,7 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaratio
         "node": "VariableDeclarator(arg)",
         "references": [
           {
-            "flags": "ReferenceFlags(Read | TSTypeQuery)",
+            "flags": "ReferenceFlags(Type)",
             "id": 0,
             "name": "arg",
             "node_id": 15
@@ -41,3 +45,9 @@ input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaratio
     ]
   }
 ]
+
+================================================================================
+CONFORMANCE
+================================================================================
+
+All tests passed.

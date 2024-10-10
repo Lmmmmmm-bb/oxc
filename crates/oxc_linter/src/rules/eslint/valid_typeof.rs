@@ -7,18 +7,18 @@ use phf::{phf_set, Set};
 
 use crate::{context::LintContext, rule::Rule, AstNode};
 
-fn not_string(x0: Option<&'static str>, span1: Span) -> OxcDiagnostic {
+fn not_string(help: Option<&'static str>, span: Span) -> OxcDiagnostic {
     let mut d =
-        OxcDiagnostic::warn("Typeof comparisons should be to string literals.").with_label(span1);
-    if let Some(x) = x0 {
+        OxcDiagnostic::warn("Typeof comparisons should be to string literals.").with_label(span);
+    if let Some(x) = help {
         d = d.with_help(x);
     }
     d
 }
 
-fn invalid_value(x0: Option<&'static str>, span1: Span) -> OxcDiagnostic {
-    let mut d = OxcDiagnostic::warn("Invalid typeof comparison value.").with_label(span1);
-    if let Some(x) = x0 {
+fn invalid_value(help: Option<&'static str>, span: Span) -> OxcDiagnostic {
+    let mut d = OxcDiagnostic::warn("Invalid typeof comparison value.").with_label(span);
+    if let Some(x) = help {
         d = d.with_help(x);
     }
     d
@@ -222,5 +222,7 @@ fn test() {
         ),
     ];
 
-    Tester::new(ValidTypeof::NAME, pass, fail).test_and_snapshot();
+    let fix = vec![("typeof foo === undefined", r#"typeof foo === "undefined""#)];
+
+    Tester::new(ValidTypeof::NAME, pass, fail).expect_fix(fix).test_and_snapshot();
 }

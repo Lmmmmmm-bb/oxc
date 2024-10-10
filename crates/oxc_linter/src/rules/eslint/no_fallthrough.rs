@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use cow_utils::CowUtils;
 use itertools::Itertools;
 use oxc_ast::{
     ast::{Statement, SwitchCase, SwitchStatement},
@@ -10,7 +11,7 @@ use oxc_cfg::{
         visit::{neighbors_filtered_by_edge_weight, EdgeRef},
         Direction,
     },
-    BasicBlockId, EdgeType, ErrorEdgeKind, InstructionKind,
+    BlockNodeId, EdgeType, ErrorEdgeKind, InstructionKind,
 };
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_macros::declare_oxc_lint;
@@ -35,11 +36,12 @@ fn no_unused_fallthrough_diagnostic(span: Span) -> OxcDiagnostic {
     .with_label(span)
 }
 
-const DEFAULT_FALLTHROUGH_COMMENT_PATTERN: &str = r"falls?\s?through";
-
 #[derive(Debug, Clone)]
 struct Config {
-    comment_pattern: Regex,
+    /// The custom comment pattern to match against. If set to None, the rule
+    /// will use the default pattern. Otherwise, if this is Some, the rule will
+    /// use the provided pattern.
+    comment_pattern: Option<Regex>,
     allow_empty_case: bool,
     report_unused_fallthrough_comment: bool,
 }
@@ -53,9 +55,9 @@ impl NoFallthrough {
         allow_empty_case: Option<bool>,
         report_unused_fallthrough_comment: Option<bool>,
     ) -> Self {
-        let comment_pattern = comment_pattern.unwrap_or(DEFAULT_FALLTHROUGH_COMMENT_PATTERN);
         Self(Box::new(Config {
-            comment_pattern: Regex::new(format!("(?iu){comment_pattern}").as_str()).unwrap(),
+            comment_pattern: comment_pattern
+                .map(|pattern| Regex::new(format!("(?iu){pattern}").as_str()).unwrap()),
             allow_empty_case: allow_empty_case.unwrap_or(false),
             report_unused_fallthrough_comment: report_unused_fallthrough_comment.unwrap_or(false),
         }))
@@ -272,7 +274,7 @@ impl Rule for NoFallthrough {
             return;
         };
 
-        let fallthroughs: FxHashSet<BasicBlockId> = neighbors_filtered_by_edge_weight(
+        let fallthroughs: FxHashSet<BlockNodeId> = neighbors_filtered_by_edge_weight(
             graph,
             switch_id,
             &|e| match e {
@@ -281,7 +283,7 @@ impl Rule for NoFallthrough {
                 }
                 _ => Some(None),
             },
-            &mut |node, last_cond: Option<BasicBlockId>| {
+            &mut |node, last_cond: Option<BlockNodeId>| {
                 let node = *node;
 
                 if node == switch_id {
@@ -293,7 +295,7 @@ impl Rule for NoFallthrough {
                 if tests.contains_key(&node) {
                     return (last_cond, true);
                 }
-                if cfg.basic_block(node).unreachable {
+                if cfg.basic_block(node).is_unreachable() {
                     return (None, false);
                 }
 
@@ -387,10 +389,7 @@ impl NoFallthrough {
                 .last()
                 .map(str::trim);
 
-            comment.is_some_and(|comment| {
-                (!comment.starts_with("oxlint-") && !comment.starts_with("eslint-"))
-                    && self.0.comment_pattern.is_match(comment)
-            })
+            comment.is_some_and(|comment| self.is_comment_fall_through(comment))
         };
 
         let (start, end) = possible_fallthrough_comment_span(case);
@@ -407,6 +406,23 @@ impl NoFallthrough {
             Some(Span::new(start, fall.span.start))
         } else {
             None
+        }
+    }
+
+    fn is_comment_fall_through(&self, comment: &str) -> bool {
+        if comment.starts_with("oxlint-") || comment.starts_with("eslint-") {
+            return false;
+        }
+        if let Some(custom_pattern) = &self.0.comment_pattern {
+            custom_pattern.is_match(comment)
+        } else {
+            // We are doing a quick check here to see if it starts with the expected "falls" comment,
+            // so that we don't need to initialize the pattern matcher if we don't need it.
+            let comment = comment.trim().cow_to_ascii_lowercase();
+            comment == "falls through"
+                || comment == "fall through"
+                || comment == "fallsthrough"
+                || comment == "fallthrough"
         }
     }
 }
@@ -432,10 +448,10 @@ fn get_switch_semantic_cases(
     node: &AstNode,
     switch: &SwitchStatement,
 ) -> (
-    Vec<BasicBlockId>,
-    FxHashMap<BasicBlockId, /* is_empty */ bool>,
-    /* default */ Option<BasicBlockId>,
-    /* exit */ Option<BasicBlockId>,
+    Vec<BlockNodeId>,
+    FxHashMap<BlockNodeId, /* is_empty */ bool>,
+    /* default */ Option<BlockNodeId>,
+    /* exit */ Option<BlockNodeId>,
 ) {
     let cfg = ctx.cfg();
     let graph = cfg.graph();
